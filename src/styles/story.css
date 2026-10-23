@@ -367,9 +367,9 @@
 /* Responsive -------------------------------------------------------------- */
 
 /*
- * Above 1360px there is enough room for the copy to sit beside the device.
- * Below that the same copy moves into a band underneath it: the artwork keeps
- * its full width, nothing overlaps, and there is no horizontal overflow.
+ * Wide screens can push chapters 02/03 out to the margins; below 1360px every
+ * chapter lines up in the band under the device, so the artwork keeps its full
+ * width and nothing overlaps.
  */
 
 @media (max-width: 1359px) {
