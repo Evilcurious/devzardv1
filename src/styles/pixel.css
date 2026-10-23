@@ -135,6 +135,7 @@
   font-weight: 600;
   color: #f1f3f4;
   text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 .pixel-headline-accent { color: #a9ecf3; }
@@ -185,6 +186,7 @@
   font-weight: 600;
   color: #f1f3f4;
   text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 .pixel-chapter-body {
@@ -370,7 +372,9 @@
 .pixel-stage[data-layout='stacked'] .pixel-body {
   inset: 42px clamp(16px, 5vw, 40px) 48px;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  /* The copy keeps its natural height; the machine takes whatever is left,
+     so a short phone shrinks the drawing instead of overlapping the words. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 4px;
   align-items: stretch;
 }
@@ -458,6 +462,11 @@
   .pixel-hud-right { letter-spacing: 0.1em; }
   .pixel-rail-labels span:nth-child(2) { display: none; }
   .pixel-actions .button { flex: 1 1 100%; justify-content: center; }
+}
+
+@media (max-height: 560px) {
+  .pixel-stage { min-height: 380px; }
+  .pixel-stage[data-layout='stacked'] .pixel-sub { display: none; }
 }
 
 @media (max-height: 620px) and (min-width: 901px) {
