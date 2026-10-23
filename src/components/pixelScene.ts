@@ -15,10 +15,6 @@ export type PartId = 'panel' | 'diffuser' | 'board' | 'power' | 'shell' | 'stand
 
 export interface PartSpec {
   id: PartId;
-  /** Caption used by the DOM annotations. */
-  label: string;
-  /** Technical note under the caption. */
-  spec: string;
   /** Width / height in design units. */
   w: number;
   h: number;
@@ -34,12 +30,12 @@ const CHIN = 6;
 
 /** Front to back, in the order the parts come off. */
 export const PARTS: PartSpec[] = [
-  { id: 'panel', label: 'Front glass', spec: 'laminated panel', w: PANEL_W, h: PANEL_H, baseY: 0, openY: 0 },
-  { id: 'diffuser', label: 'Diffuser sheet', spec: 'edge-lit LED array', w: 100, h: 26, baseY: 0, openY: 66 },
-  { id: 'board', label: 'Control board', spec: '4-layer · 1.6 mm', w: 84, h: 26, baseY: 0, openY: 94 },
-  { id: 'power', label: 'Power board', spec: '24 V · isolated', w: 62, h: 22, baseY: 0, openY: 122 },
-  { id: 'shell', label: 'Chassis', spec: 'milled aluminium', w: 104, h: 22, baseY: 0, openY: 146 },
-  { id: 'stand', label: 'Stand', spec: 'cast base', w: 52, h: 20, baseY: 56, openY: 172 },
+  { id: 'panel', w: PANEL_W, h: PANEL_H, baseY: 0, openY: 0 },
+  { id: 'diffuser', w: 100, h: 26, baseY: 0, openY: 66 },
+  { id: 'board', w: 84, h: 26, baseY: 0, openY: 94 },
+  { id: 'power', w: 62, h: 22, baseY: 0, openY: 122 },
+  { id: 'shell', w: 104, h: 22, baseY: 0, openY: 146 },
+  { id: 'stand', w: 52, h: 20, baseY: 56, openY: 172 },
 ];
 
 export interface Camera {
@@ -177,6 +173,9 @@ function dither(
   }
 }
 
+/** Width of a run of pixel text, in design units. */
+const textWidth = (value: string, unit: number) => value.length * 6 * unit - unit;
+
 /** A blocky circle, drawn as horizontal spans. */
 function disc(ctx: CanvasRenderingContext2D, p: Painter, cx: number, cy: number, r: number, color: string) {
   ctx.fillStyle = color;
@@ -242,7 +241,11 @@ const C = {
   white: '#eaf2f4',
 };
 
-/** What the screen is showing: a small piece of software, in pixels. */
+/**
+ * What the screen is showing: the five services, one per row, set big enough
+ * to stay legible when the machine is apart and the whole drawing is small.
+ * Nothing here is a metric we cannot back up — it is a menu, not a dashboard.
+ */
 function drawScreen(
   ctx: CanvasRenderingContext2D,
   p: Painter,
@@ -253,74 +256,37 @@ function drawScreen(
   time: number,
   explode: number,
 ) {
-  const dim = 1 - explode * 0.35;
-  // Header.
-  box(ctx, p, x, y, w, 6, 'rgba(9, 24, 29, 0.9)');
-  text(ctx, p, 'DEVZARD', x + 3, y + 0.8, 0.62, C.white);
-  text(ctx, p, 'LIVE', x + w - 13.5, y + 1.6, 0.5, C.accent);
-  box(ctx, p, x + w - 17, y + 2.6, 1.2, 1.2, C.accent);
-  box(ctx, p, x, y + 6, w, 0.5, 'rgba(108,222,232,0.2)');
+  const dim = 1 - explode * 0.3;
 
-  // Left column: what the studio builds.
-  const rows: Array<[string, string]> = [
-    ['WEBSITES', 'FAST'],
-    ['COMMERCE', 'STORES'],
-    ['SYSTEMS', 'TOOLS'],
-  ];
-  rows.forEach(([label, note], index) => {
-    const ry = y + 9 + index * 13;
-    box(ctx, p, x + 3, ry, 30, 10.5, 'rgba(13, 31, 37, 0.9)');
-    box(ctx, p, x + 3, ry, 30, 0.5, 'rgba(108,222,232,0.14)');
-    box(ctx, p, x + 4.5, ry + 2.5, 1.2, 5, C.accentDim);
-    text(ctx, p, label, x + 7.5, ry + 1.6, 0.5, C.white);
-    text(ctx, p, note, x + 7.5, ry + 6.4, 0.36, 'rgba(150,182,188,0.85)');
+  // Header: wordmark and a live dot.
+  box(ctx, p, x, y, w, 7, 'rgba(9, 24, 29, 0.9)');
+  text(ctx, p, 'DEVZARD', x + 3, y + 1.2, 0.72, C.white);
+  // Right-aligned, measured, so it can never run over the bezel.
+  text(ctx, p, 'LIVE', x + w - 3 - textWidth('LIVE', 0.6), y + 1.4, 0.6, C.accent);
+  box(ctx, p, x + w - 5.6 - textWidth('LIVE', 0.6), y + 3.2, 1.6, 1.6, C.accent);
+  box(ctx, p, x, y + 7, w, 0.5, 'rgba(108,222,232,0.2)');
+
+  // The menu: five services, front to back. The marker steps down the list on
+  // the same clock as the dust, so the screen keeps choosing the next one.
+  const rows: string[] = ['SOFTWARE', 'HOSTING', 'ERP', 'AI AUTOMATION', 'DESIGN'];
+  const active = Math.floor(time / 1400) % rows.length;
+  rows.forEach((label, index) => {
+    const ry = y + 9 + index * 8;
+    const on = index === active;
+    box(ctx, p, x + 3, ry, w - 6, 7, on ? 'rgba(20, 49, 57, 0.95)' : 'rgba(13, 31, 37, 0.9)');
+    box(ctx, p, x + 3, ry, w - 6, 0.4, on ? 'rgba(108,222,232,0.4)' : 'rgba(108,222,232,0.14)');
+    box(ctx, p, x + 4, ry + (on ? 1.5 : 1.8), 1.2, on ? 4 : 3.2, on ? C.accent : C.accentDim);
+    text(ctx, p, label, x + 8, ry + 1.6, 0.62, on ? C.white : 'rgba(214,228,232,0.82)');
   });
 
-  // Centre: bar chart.
-  const chartX = x + 36;
-  const chartY = y + 9;
-  const chartW = 33;
-  const chartH = 36;
-  box(ctx, p, chartX, chartY, chartW, chartH, 'rgba(8, 22, 27, 0.6)');
-  box(ctx, p, chartX, chartY, chartW, 0.5, 'rgba(108,222,232,0.16)');
-  const bars = [9, 15, 12, 23, 17, 28, 22];
-  bars.forEach((bar, index) => {
-    const bx = chartX + 3.5 + index * 4;
-    const bh = Math.max(2, bar + Math.sin(time * 0.0009 + index) * 1.6);
-    box(ctx, p, bx, chartY + chartH - 5 - bh, 2.6, bh, index === 5 ? C.accent : C.accentDim);
-    box(ctx, p, bx, chartY + chartH - 5 - bh, 2.6, 0.6, 'rgba(255,255,255,0.4)');
-  });
-  box(ctx, p, chartX + 2.5, chartY + chartH - 4.5, chartW - 5, 0.4, 'rgba(150,190,196,0.3)');
-  text(ctx, p, 'BUILD 128', chartX + 2.5, chartY + chartH - 3, 0.36, 'rgba(150,182,188,0.75)');
-
-  // Right: two readouts.
-  const stats: Array<[string, string]> = [
-    ['UPTIME', '99.9'],
-    ['LATENCY', '112MS'],
-  ];
-  stats.forEach(([label, value], index) => {
-    const sx = x + w - 27;
-    const sy = y + 9 + index * 13;
-    box(ctx, p, sx, sy, 24, 10.5, 'rgba(13, 31, 37, 0.9)');
-    text(ctx, p, label, sx + 1.5, sy + 1, 0.32, 'rgba(150,182,188,0.8)');
-    text(ctx, p, value, sx + 1.5, sy + 4.6, 0.6, C.white);
-  });
-
-  // Footer: build bar.
-  const footY = y + h - 9;
-  box(ctx, p, x + 3, footY, w - 6, 0.4, 'rgba(255,255,255,0.09)');
-  box(ctx, p, x + 3, footY + 2, w * 0.52, 1.2, 'rgba(108,222,232,0.5)');
-  box(ctx, p, x + 3 + w * 0.52, footY + 2, w * 0.32, 1.2, 'rgba(255,255,255,0.08)');
-  text(ctx, p, 'SHIPPING', x + 3, footY + 4.4, 0.4, 'rgba(150,182,188,0.7)');
-  text(ctx, p, '84', x + w - 9, footY + 4.4, 0.4, C.accent);
-
-  // A scan line sweeps the glass now and then.
-  const sweep = 0.5 + 0.5 * Math.sin(time * 0.00035);
-  const sy2 = y + 6 + sweep * (h - 12);
-  box(ctx, p, x + 1, sy2, w - 2, 0.4, `rgba(108,222,232,${0.08 * dim})`);
+  // Footer: a pipeline bar that breathes with the clock.
+  const footY = y + h - 4;
+  box(ctx, p, x + 3, footY, w - 6, 0.4, 'rgba(255,255,255,0.1)');
+  const fill = 0.42 + 0.26 * (0.5 + 0.5 * Math.sin(time * 0.0006));
+  box(ctx, p, x + 3, footY + 1.4, (w - 6) * fill, 1, `rgba(108,222,232,${0.7 * dim})`);
 
   // Vignette.
-  dither(ctx, p, x, y + h - 3, w, 3, 'rgba(0,0,0,0.18)', 1);
+  dither(ctx, p, x, y + h - 3, w, 3, 'rgba(0,0,0,0.16)', 1);
 }
 
 function drawPanel(
@@ -387,7 +353,7 @@ function drawDiffuser(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) 
   }
   box(ctx, p, x + 4, y + h * 0.5 - 0.5, w - 8, 0.5, 'rgba(255,255,255,0.45)');
   box(ctx, p, x + 4, y + h * 0.5 + 1.5, w - 8, 0.5, 'rgba(120,140,146,0.35)');
-  text(ctx, p, 'EDGE LIT 48', x + 5, y + h - 9, 0.5, '#5f6d72');
+  text(ctx, p, 'SOFTWARE', x + 5, y + h - 9, 0.5, '#4d5a5f');
 }
 
 function drawBoard(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
@@ -436,7 +402,7 @@ function drawBoard(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
   box(ctx, p, x + 74, y + 6, 6, 9, '#262d33');
   for (let i = 0; i < 4; i += 1) box(ctx, p, x + 75, y + 7 + i * 2, 4, 1, C.gold);
 
-  text(ctx, p, 'CTRL-01', x + 5, y + 4, 0.45, 'rgba(210,232,226,0.5)');
+  text(ctx, p, 'HOSTING', x + 5, y + 3.4, 0.45, 'rgba(210,232,226,0.5)');
 }
 
 function drawPower(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
@@ -464,7 +430,7 @@ function drawPower(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
   box(ctx, p, x + 45, y + 12, 8, 6, '#262d33');
   for (let i = 0; i < 3; i += 1) box(ctx, p, x + 46, y + 13 + i * 2, 6, 1, C.gold);
 
-  text(ctx, p, 'PWR-24V', x + 5, y + 1.4, 0.45, 'rgba(210,232,226,0.4)');
+  text(ctx, p, 'ERP', x + 5, y + 1.4, 0.45, 'rgba(210,232,226,0.4)');
 }
 
 function drawShell(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
@@ -496,6 +462,7 @@ function drawShell(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
   }
 
   box(ctx, p, x + 12, y + h - 3.5, w - 24, 0.5, 'rgba(20,26,31,0.5)');
+  text(ctx, p, 'AI AUTOMATION', x + 12, y + 14, 0.42, 'rgba(14,20,24,0.72)');
 }
 
 function drawStand(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
@@ -509,6 +476,7 @@ function drawStand(ctx: CanvasRenderingContext2D, p: Painter, part: PartBox) {
   box(ctx, p, x, y + 12, w, 1, C.metalLight);
   box(ctx, p, x, y + 16, w, 1, C.edgeDark);
   box(ctx, p, x + 2, y + 14, 6, 1, 'rgba(255,255,255,0.12)');
+  text(ctx, p, 'DESIGN', x + 3, y + 13.6, 0.34, 'rgba(220,232,236,0.42)');
 }
 
 /* ── Ambient ───────────────────────────────────────────────────────────── */

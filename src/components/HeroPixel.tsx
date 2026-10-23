@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContent } from '../cms/context';
 import { SiteLink } from '../lib/navigation';
 import { Icon } from './ui';
-import { drawPixelScene, explodeAt, PARTS, pixelLayout, type PartId } from './pixelScene';
+import { drawPixelScene, explodeAt, pixelLayout, type PartId } from './pixelScene';
 
 /**
  * Hero: a display, drawn in pixels and taken apart as you scroll.
@@ -38,8 +38,8 @@ const CHAPTERS: Chapter[] = [
     at: 0.3,
     half: 0.12,
     tag: '01 / Services',
-    title: 'Websites, stores, systems.',
-    body: 'Marketing sites, ecommerce, internal tools and custom software — designed, built and shipped by the same team.',
+    title: 'Five services. One team.',
+    body: 'Websites, stores, ERP systems, AI automation, hosting and design — built and shipped by the same team.',
     href: '/#services',
     link: 'What we build',
   },
@@ -86,7 +86,26 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-const LABELS: PartId[] = ['diffuser', 'board', 'power', 'shell', 'stand'];
+/**
+ * Every plate the machine comes apart into carries one of the studio's
+ * services. The order here is the order they separate in, top to bottom.
+ */
+interface Service {
+  part: PartId;
+  name: string;
+  detail: string;
+}
+
+const SERVICES: Service[] = [
+  { part: 'diffuser', name: 'Software development', detail: 'web · commerce · systems' },
+  { part: 'board', name: 'Hosting', detail: 'deploy · monitor · maintain' },
+  { part: 'power', name: 'ERP systems', detail: 'stock · billing · reports' },
+  { part: 'shell', name: 'AI automation', detail: 'workflows · integrations' },
+  { part: 'stand', name: 'Video & graphic design', detail: 'editing · motion · brand' },
+];
+
+/** Width reserved for an annotation, in CSS pixels. */
+const LABEL_W = 148;
 
 export function HeroPixel() {
   const { content } = useContent();
@@ -189,13 +208,18 @@ export function HeroPixel() {
     const figure = figureRef.current;
     if (figure && current.cw > 0) {
       const layout = pixelLayout(current.cw, current.ch, explode, current.stacked);
-      LABELS.forEach((id, index) => {
+      SERVICES.forEach((service, index) => {
         const node = labelRefs.current[index];
-        const part = layout.parts.find(item => item.id === id);
+        const part = layout.parts.find(item => item.id === service.part);
         if (!node || !part) return;
         const { s: scale, ox, oy } = layout.camera;
-        const x = ox + (part.x + part.w + 7) * scale;
+        const right = ox + (part.x + part.w + 7) * scale;
         const y = oy + (part.y + part.h - 7) * scale;
+        // Labels sit to the right of their plate, unless that would run past
+        // the frame; then they sit to the left of it, leader line reversed.
+        const flip = right + LABEL_W > current.cw - 6;
+        const x = flip ? ox + (part.x - 7) * scale - LABEL_W : right;
+        node.classList.toggle('is-flipped', flip);
         const o = clamp01((explode - index * 0.07) / 0.22);
         node.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
         node.style.opacity = (o * (current.stacked ? 0 : 1)).toFixed(3);
@@ -442,22 +466,19 @@ export function HeroPixel() {
             <span className="pixel-fig-frame" aria-hidden="true" />
             <canvas ref={canvasRef} className="pixel-canvas" aria-hidden="true" />
             <div className="pixel-labels" aria-hidden="true">
-              {LABELS.map((id, index) => {
-                const part = PARTS.find(item => item.id === id)!;
-                return (
-                  <div
-                    className="pixel-label"
-                    key={id}
-                    ref={node => { labelRefs.current[index] = node; }}
-                  >
-                    <span className="pixel-label-name">{part.label}</span>
-                    <span className="pixel-label-spec">{part.spec}</span>
-                  </div>
-                );
-              })}
+              {SERVICES.map((service, index) => (
+                <div
+                  className="pixel-label"
+                  key={service.part}
+                  ref={node => { labelRefs.current[index] = node; }}
+                >
+                  <span className="pixel-label-name">{service.name}</span>
+                  <span className="pixel-label-spec">{service.detail}</span>
+                </div>
+              ))}
             </div>
             <span className="pixel-fig-caption" aria-hidden="true">
-              FIG. 01 — DISPLAY, 24 IN / 6 PARTS
+              FIG. 01 — WHAT WE BUILD, LAYER BY LAYER
             </span>
           </div>
         </div>
