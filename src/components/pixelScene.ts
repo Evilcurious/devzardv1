@@ -136,7 +136,7 @@ const FONT: Record<string, string> = {
   '/': '01010204081010', ':': '000c0c000c0c00', '·': '0000000c0c0000', '+': '0004041f040400',
 };
 
-interface Painter {
+export interface Painter {
   s: number;
   ox: number;
   oy: number;
@@ -146,7 +146,7 @@ const X = (p: Painter, v: number) => Math.round(p.ox + v * p.s);
 const Y = (p: Painter, v: number) => Math.round(p.oy + v * p.s);
 const L = (p: Painter, v: number) => Math.max(1, Math.round(v * p.s));
 
-function box(ctx: CanvasRenderingContext2D, p: Painter, x: number, y: number, w: number, h: number, color: string) {
+export function box(ctx: CanvasRenderingContext2D, p: Painter, x: number, y: number, w: number, h: number, color: string) {
   const x0 = X(p, x);
   const y0 = Y(p, y);
   ctx.fillStyle = color;
@@ -154,7 +154,7 @@ function box(ctx: CanvasRenderingContext2D, p: Painter, x: number, y: number, w:
 }
 
 /** Checkerboard shading, two design units apart. */
-function dither(
+export function dither(
   ctx: CanvasRenderingContext2D,
   p: Painter,
   x: number,
@@ -186,7 +186,7 @@ function disc(ctx: CanvasRenderingContext2D, p: Painter, cx: number, cy: number,
 }
 
 /** Run-merged pixel text, snapped to the device grid. */
-function text(
+export function text(
   ctx: CanvasRenderingContext2D,
   p: Painter,
   value: string,

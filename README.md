@@ -77,6 +77,18 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 - **Reduced motion.** `prefers-reduced-motion: reduce` renders one still frame of the assembled panel, keeps the hero copy, and turns the chapters into ordinary sections below it. The pointer parallax is disabled.
 - A reload always starts at the hero: `scrollRestoration` is `manual` and any `#hash` left in the URL by an earlier in-page click is dropped at boot. In-app hash links (Contact, Start a Project) still scroll as before.
 
+## The stack
+
+`src/components/StackStory.tsx` (art in `stackScene.ts`) sits directly below the hero: one system, four layers, centred on the page.
+
+- **Frontend, backend, database, security.** The drawing is four pixel plates stacked in that order. Closed, they read as one machine; as you scroll they separate, and a request packet keeps travelling down through them and back up.
+- **Chapters.** Four chapters (one per layer) cross-fade underneath the drawing; the plate the current chapter describes gets a cyan keyline and a live marker, its label in the margin goes full brightness, and the rail on the right lights the matching number. Rail buttons are real `<button>`s that scroll to their chapter.
+- **Motion.** Same engine as the hero: one rAF-batched pass reads the scroll position and writes to the canvas and the overlays directly, and the canvas only repaints when the separation actually moves (plus a 90 ms ambient tick that pauses when the tab is hidden or the stage is off screen).
+- **Labels.** The names beside the drawing are DOM text positioned from the same layout maths the canvas uses, so they stay crisp at any scale and always sit on the plate they name. They flip to the left side of a plate when the right edge is too close, and are hidden on narrow screens where the chapter text already names the layer.
+- **Content.** Everything in the panels is illustrative and true to the stack we use — PostgreSQL, Node/Spring, React, role-based permissions — not invented metrics.
+- **Reduced motion.** One still frame of the separated stack plus the four chapters as ordinary sections.
+- **No overflow.** Every layer is inside an `overflow: hidden` stage; the track uses `overflow-x: clip`.
+
 ## Deploy
 
 The website and its admin API are deployed on Vercel (project `devzardv1`).

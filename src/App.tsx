@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Navbar, Footer } from './components/Chrome';
 import { HeroProduct, TrustStrip, Principles } from './components/Hero';
 import { HeroPixel } from './components/HeroPixel';
+import { StackStory } from './components/StackStory';
 import { Services, ServiceDialog } from './components/Services';
 import { FeaturedWork } from './components/Work';
 import { Process, Technology, WhyDevzard, FinalCTA, Testimonials } from './components/Agency';
@@ -20,7 +21,7 @@ const ResourcePage = lazy(() => import('./pages/ResourcePage'));
 const AdminApp = lazy(() => import('./admin/AdminApp'));
 
 function Home({ onService, preset }: { onService: (service: Service) => void; preset: Service | null }) {
-  return <><HeroPixel /><HeroProduct /><TrustStrip /><Principles /><Services onSelect={onService} /><FeaturedWork /><Process /><Technology /><WhyDevzard /><Testimonials /><FinalCTA /><ContactForm preset={preset} /></>;
+  return <><HeroPixel /><HeroProduct /><StackStory /><TrustStrip /><Principles /><Services onSelect={onService} /><FeaturedWork /><Process /><Technology /><WhyDevzard /><Testimonials /><FinalCTA /><ContactForm preset={preset} /></>;
 }
 
 export default function App() {
