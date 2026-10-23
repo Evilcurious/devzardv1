@@ -63,18 +63,19 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 
 ## Hero display
 
-`src/components/HeroStage.tsx` (art in `laptopScene.ts`) is the first thing on the homepage: an open silver laptop with the hero copy on its display.
+`src/components/HeroAssembly.tsx` (art in `assemblyScene.ts`) is the first thing on the homepage: the product shot of an open silver laptop, with the hero copy on its display.
 
-- The machine is open from the first frame — silver body, aluminium deck with a full keyboard (lettered keycaps and `DEVZARD` etched on the space bar), trackpad, thin bezel, a deeper chin with the wordmark, and a lit display.
-- There is no open/close sequence, no pinning and no scroll listener. The hero is a normal block: it sits at the top of the page and scrolls away with the rest of the site.
-- The copy settles onto the glass over about **1.4 s** (`HERO_REVEAL.durationMs`), staggered in reading order — brand, headline, description, calls to action.
-- Idle motion after that is decorative and slow: a specular sweep across the metal every ~9 s, a light band crossing the glass, a drifting scan line, a breathing wallpaper bloom, dust motes in the display light, a softly pulsing status dot and CTA glow, and a few pixels of pointer parallax on the device (mouse only).
-- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`). There are no duplicated measurements between canvas and CSS.
-- The section is exactly the first screen below the header (`calc(100svh - header)`), and the device is sized from that box, so the whole machine is visible without scrolling. A sliver of the base runs past the bottom edge and is masked out, so the device fills the frame instead of ending on a hard line.
-- Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it, sized from the height left over so the two never overlap.
+- **First frame.** Assembled machine on a dark studio sweep — silver lid, aluminium deck with a full keyboard (lettered keycaps, `DEVZARD` on the space bar), trackpad, thin bezel, chin wordmark, lit display. The copy sits on the glass.
+- **On scroll.** The section is a tall track (`300vh`, `270vh` on phones) with a sticky, viewport-sized stage inside it. Progress drives one value, `explodeAt(progress)`: the hero copy leaves by ~9%, the machine opens into display assembly → keyboard deck → mainboard → battery → bottom cover by ~46%, holds to ~62%, and closes again by ~94%. The camera pulls back as it opens so no layer ever clips.
+- **Beats.** `BEATS` (lead/trail titles for the side columns, at 30% and 60%) and `FINAL` (the closing line, at 90%) hold the copy. On stages ≥1240 px wide the beats sit in the left and right margins; narrower stages centre them under the machine with a scrim, and stacked stages put them in the top band. The closing line lands back on the display once the machine is reassembled, closing the loop with the hero copy.
+- Scroll work is batched into one `requestAnimationFrame` per frame. The canvas, copy, beats and rail are written to directly (`style.setProperty` / `classList`), never through React state, so scrolling does not re-render.
+- The scene is vector art in one small design space, fitted by its own bounds, so it stays sharp at every size and needs no downloads. The canvas is transparent and the stage background is the page background, so no frame edges show.
+- Geometry is published from the canvas box to CSS (`--lid-w`, `--lid-h`, `--screen-top`, `--hinge-y`), so the copy is placed from the same numbers that draw the machine — no duplicated measurements.
+- Narrow stages switch to `data-layout="stacked"`: the copy takes the top band and the machine sits underneath it, sized from the box left over so the two never overlap.
+- The canvas fades in on its first painted frame (`.is-ready`); the ambient tick (dust, pointer parallax) pauses when the stage is off screen or the tab is hidden. Reduced motion renders one still frame and turns the three beats into ordinary sections below it.
 - A reload always starts at the hero: `scrollRestoration` is set to `manual` and any `#hash` left in the URL by an earlier in-page click is dropped at boot. In-app hash links (Contact, Start a Project) still scroll as before.
-- The canvas loop pauses when the hero is off screen or the tab is hidden, and reduced motion shows the settled, static state with the CSS animations turned off.
-- Hidden copy lines are `visibility: hidden`, and the buttons only accept pointer input once visible, so nothing invisible can be focused or clicked.
+
+The previous hero (`HeroStage.tsx` / `laptopScene.ts`) is kept in the tree but is no longer mounted.
 
 ## Scroll experience
 

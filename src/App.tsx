@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Navbar, Footer } from './components/Chrome';
 import { HeroProduct, TrustStrip, Principles } from './components/Hero';
-import { HeroStage } from './components/HeroStage';
+import { HeroAssembly } from './components/HeroAssembly';
 import { DevzardScrollExperience } from './components/DevzardScrollExperience';
 import { Services, ServiceDialog } from './components/Services';
 import { FeaturedWork } from './components/Work';
@@ -21,7 +21,7 @@ const ResourcePage = lazy(() => import('./pages/ResourcePage'));
 const AdminApp = lazy(() => import('./admin/AdminApp'));
 
 function Home({ onService, preset }: { onService: (service: Service) => void; preset: Service | null }) {
-  return <><HeroStage /><HeroProduct /><div id="story"><DevzardScrollExperience /></div><TrustStrip /><Principles /><Services onSelect={onService} /><FeaturedWork /><Process /><Technology /><WhyDevzard /><Testimonials /><FinalCTA /><ContactForm preset={preset} /></>;
+  return <><HeroAssembly /><HeroProduct /><div id="story"><DevzardScrollExperience /></div><TrustStrip /><Principles /><Services onSelect={onService} /><FeaturedWork /><Process /><Technology /><WhyDevzard /><Testimonials /><FinalCTA /><ContactForm preset={preset} /></>;
 }
 
 export default function App() {
