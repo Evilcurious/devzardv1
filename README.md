@@ -67,7 +67,9 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 
 - The section is a tall track (`380vh` desktop, shorter on mobile). A sticky, viewport-sized stage is pinned inside it, and a single passive `scroll` listener maps the track's progress to a canvas frame.
 - Scroll work is batched into one `requestAnimationFrame` per frame. Captions, the chapter rail, and the canvas are written to directly (`style.setProperty` / `classList`), never through React state, so scrolling does not re-render or repaint more than once per frame.
-- The device artwork lives in `deviceScene.ts` and is drawn as vector layers, so it stays sharp at every size and needs no network requests. The canvas keeps a transparent background and fits the artwork inside its own box (`contain`), so it blends into the page section without edges.
+- The device artwork lives in `deviceScene.ts` and is drawn as vector layers, so it stays sharp at every size and needs no network requests. The canvas keeps a transparent background, is centred in the stage, and frames the artwork by its own bounds, so it blends into the page section without edges.
+- The framing is deliberate: the scene fits the *separated* stack and then eases the camera closer as the layers close, so the assembled device reads large without ever clipping when it opens. The zoom is clamped against the plate size, which keeps the same framing on phones.
+- `.story-canvas` needs an explicit `width`/`height`. A `<canvas>` is a replaced element with an intrinsic 300×150 box, so positioning it with `inset` alone leaves it tiny in the corner.
 - Chapters are defined in one place: the `CHAPTERS` array (scroll position, alignment, title, copy, optional CTA). The first chapter is clamped on at the top of the track and the last at the end, so the opening and closing lines stay readable instead of fading into the section edges.
 
 ### Using a pre-rendered image sequence instead

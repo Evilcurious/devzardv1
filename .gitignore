@@ -51,6 +51,9 @@ desktop.ini
 
 *.tsbuildinfo
 
+# Local scratch renders
+.scratch/
+
 # Vercel
 
 .vercel/

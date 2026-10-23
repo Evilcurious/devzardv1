@@ -17,6 +17,15 @@ export const SCENE = {
   /** Virtual design box the artwork is laid out in, in design units. */
   designWidth: 780,
   designHeight: 1000,
+  /**
+   * Tightest box the artwork can occupy when fully separated. Framing to this
+   * instead of the full design box removes the empty margin that used to keep
+   * the device small in the middle of the stage.
+   */
+  artWidth: 700,
+  artHeight: 880,
+  /** How much closer the camera sits while the device is assembled (1 = none). */
+  restZoom: 1.55,
   /** Plate geometry, in design units. */
   plateWidth: 600,
   plateDepth: 110,
@@ -59,25 +68,54 @@ export function drawDeviceScene(ctx: CanvasRenderingContext2D, frame: DeviceScen
   ctx.clearRect(0, 0, width, height);
   if (width <= 0 || height <= 0) return;
 
-  // Contain-fit with a small safety margin so no plate ever touches the edge.
-  const scale = Math.min(width / SCENE.designWidth, height / SCENE.designHeight) * 0.94;
-  ctx.translate(width / 2, height / 2);
-  ctx.scale(scale, scale);
-
   const layout = layoutLayers(explore, reduced ? 0 : progress);
 
+  // Fit the separated stack, then ease the camera in as the layers close up.
+  // Framing to the artwork instead of the old 780×1000 design box, plus the
+  // rest zoom, is what makes the device read large and centred instead of
+  // floating small in the middle of the stage.
+  const fit = Math.min(width / SCENE.artWidth, height / SCENE.artHeight) * 0.94;
+  const zoom = cameraZoom(layout, fit, width, height, explore);
+
+
+  // Centre on the artwork's own bounds, not on the origin: the layers open in a
+  // staggered order, so a fixed centre would let the stack drift off-frame.
+  const artTop = Math.min(...layout.map(layer => layer.top));
+  const artBottom = Math.max(...layout.map((layer, index) => layer.top + SCENE.plateDepth + LAYERS[index].thickness));
+  const artCentre = (artTop + artBottom) / 2;
+
+  ctx.save();
+  ctx.translate(width / 2, height / 2 - height * 0.03 - artCentre * fit * zoom);
+  ctx.scale(fit * zoom, fit * zoom);
+
   drawAmbient(ctx, explore);
-  if (!reduced) drawParticles(ctx, progress);
+  if (!reduced) drawParticles(ctx, progress, explore);
   drawFloorShadow(ctx, layout, explore);
   drawConnectors(ctx, layout);
   // Bottom-up so upper plates overlap lower ones while the device is closed.
   for (let index = LAYERS.length - 1; index >= 0; index -= 1) {
     drawPlate(ctx, LAYERS[index], layout[index], index);
   }
+  if (!reduced) drawScan(ctx, layout, explore, progress);
   drawStatusLight(ctx, layout, progress);
+  ctx.restore();
 }
 
-/* ── layout ─────────────────────────────────────────────────────────────── */
+/**
+ * Camera distance for one frame: closest at rest, easing back as the stack
+ * opens, and always clamped so a plate can never leave the canvas — the clamp
+ * is what keeps the larger framing safe on narrow screens.
+ */
+function cameraZoom(layout: LayerLayout[], fit: number, width: number, height: number, explore: number) {
+  const wanted = 1 + (SCENE.restZoom - 1) * (1 - explore);
+  const top = Math.min(...layout.map(layer => layer.top));
+  const bottom = Math.max(...layout.map((layer, index) => layer.top + SCENE.plateDepth + LAYERS[index].thickness));
+  const roomX = (width * 0.48) / ((SCENE.plateWidth / 2 + 18) * fit);
+  const roomY = (height * 0.48) / (((bottom - top) / 2) * fit);
+  return Math.max(0.5, Math.min(wanted, roomX, roomY));
+}
+
+/* ── layout ───────────────────────────────────────────────────────────────── */
 
 interface LayerSpec {
   kind: 'shell' | 'display' | 'frame' | 'board' | 'core' | 'base';
@@ -119,7 +157,7 @@ function layoutLayers(explode: number, progress: number): LayerLayout[] {
   return LAYERS.map((layer, index) => {
     const from = assembled[index] + slab(index) / 2 - centre;
     const to = (index - (LAYERS.length - 1) / 2) * SCENE.explodedPitch;
-    const spread = smoothstep((explode - index * 0.055) / 0.72);
+    const spread = smoothstep((explode - index * 0.032) / 0.72);
     const centreY = from + (to - from) * spread;
     // A whisper of lateral drift so the exploded stack reads as engineering
     // rather than a perfectly stacked deck. Kept tiny to avoid misalignment.
@@ -131,20 +169,31 @@ function layoutLayers(explode: number, progress: number): LayerLayout[] {
 /* ── scene chrome ───────────────────────────────────────────────────────── */
 
 function drawAmbient(ctx: CanvasRenderingContext2D, explode: number) {
-  const radius = 430 + explode * 90;
-  const glow = ctx.createRadialGradient(0, -10, 20, 0, -10, radius);
-  glow.addColorStop(0, 'rgba(64, 208, 226, 0.16)');
-  glow.addColorStop(0.42, 'rgba(46, 164, 190, 0.07)');
+  // The halo tightens and brightens as the device opens, so the light reads as
+  // coming from the hardware rather than as a static background blob.
+  const radius = 400 + explode * 120;
+  const glow = ctx.createRadialGradient(0, -6, 16, 0, -6, radius);
+  glow.addColorStop(0, `rgba(64, 208, 226, ${0.13 + explode * 0.06})`);
+  glow.addColorStop(0.42, `rgba(46, 164, 190, ${0.055 + explode * 0.03})`);
   glow.addColorStop(1, 'rgba(10, 14, 18, 0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, -10, radius, 0, Math.PI * 2);
+  ctx.arc(0, -6, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // A second, tighter bloom keeps the middle of the stack from going flat.
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 210);
+  core.addColorStop(0, `rgba(120, 232, 244, ${0.05 + explode * 0.05})`);
+  core.addColorStop(1, 'rgba(108, 222, 232, 0)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(0, 0, 210, 0, Math.PI * 2);
   ctx.fill();
 
   // Faint horizon line that anchors the product in the composition.
   const horizon = ctx.createLinearGradient(-330, 0, 330, 0);
   horizon.addColorStop(0, 'rgba(108, 222, 232, 0)');
-  horizon.addColorStop(0.5, 'rgba(108, 222, 232, 0.14)');
+  horizon.addColorStop(0.5, `rgba(108, 222, 232, ${0.1 + explode * 0.05})`);
   horizon.addColorStop(1, 'rgba(108, 222, 232, 0)');
   ctx.strokeStyle = horizon;
   ctx.lineWidth = 1;
@@ -154,22 +203,57 @@ function drawAmbient(ctx: CanvasRenderingContext2D, explode: number) {
   ctx.stroke();
 }
 
-function drawParticles(ctx: CanvasRenderingContext2D, progress: number) {
+function drawParticles(ctx: CanvasRenderingContext2D, progress: number, explode: number) {
+  // Dust that only lifts off once the device starts to open, drifting upwards
+  // through the gaps. Tied to scroll progress, never to a timer, so the frame
+  // stays a pure function of where the page is.
+  const visibility = 0.18 + explode * 0.82;
   const random = mulberry32(20261023);
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 26; index += 1) {
     const angle = random() * Math.PI * 2;
-    const radius = 175 + random() * 170;
+    const radius = 168 + random() * 156;
     const depth = 0.35 + random() * 0.65;
-    const drift = Math.sin(progress * Math.PI * 2 + random() * Math.PI * 2) * 16;
+    const phase = random() * Math.PI * 2;
+    const lift = (progress * 46 + Math.sin(progress * Math.PI * 2 + phase) * 12) * depth;
     const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius * 0.62 + drift;
-    ctx.globalAlpha = 0.05 + depth * 0.16;
+    const y = Math.sin(angle) * radius * 0.6 - lift;
+    ctx.globalAlpha = (0.05 + depth * 0.14) * visibility;
     ctx.fillStyle = index % 3 === 0 ? ACCENT : '#cfe0e6';
     ctx.beginPath();
-    ctx.arc(x, y, 0.9 + depth * 1.4, 0, Math.PI * 2);
+    ctx.arc(x, y, 0.9 + depth * 1.3, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+}
+
+/**
+ * A single hairline of accent light that travels down the open stack, as if a
+ * scanner were reading the hardware. Only present while the layers are apart.
+ */
+function drawScan(ctx: CanvasRenderingContext2D, layout: LayerLayout[], explode: number, progress: number) {
+  if (explode < 0.12) return;
+  const top = Math.min(...layout.map(layer => layer.top)) - 18;
+  const bottom = Math.max(...layout.map((layer, index) => layer.top + SCENE.plateDepth + LAYERS[index].thickness)) + 18;
+  const travel = ((progress - 0.08) / 0.34) % 1;
+  const y = top + (bottom - top) * clamp01(travel);
+  const strength = Math.sin(Math.PI * clamp01(explode)) * 0.5;
+  if (strength <= 0.01) return;
+
+  const half = SCENE.plateWidth / 2 + 40;
+  const line = ctx.createLinearGradient(-half, 0, half, 0);
+  line.addColorStop(0, 'rgba(108, 222, 232, 0)');
+  line.addColorStop(0.5, `rgba(150, 244, 250, ${strength * 0.55})`);
+  line.addColorStop(1, 'rgba(108, 222, 232, 0)');
+  ctx.save();
+  ctx.shadowColor = `rgba(108, 222, 232, ${strength * 0.5})`;
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-half, y);
+  ctx.lineTo(half, y);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawFloorShadow(ctx: CanvasRenderingContext2D, layout: LayerLayout[], explode: number) {

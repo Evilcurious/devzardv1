@@ -82,11 +82,15 @@
 }
 
 .story-canvas {
+  /* Explicit size, not insets: <canvas> is a replaced element with an
+     intrinsic 300×150 box, so `left/right/top/bottom` alone leave it at its
+     default size instead of stretching it. */
   position: absolute;
-  top: 92px;
-  bottom: 22px;
-  left: clamp(0px, 13vw, 250px);
-  right: clamp(0px, 13vw, 250px);
+  top: 50%;
+  left: 50%;
+  width: min(94vw, 1120px);
+  height: min(58svh, 520px);
+  transform: translate(-50%, -56%);
   display: block;
   pointer-events: none;
 }
@@ -113,25 +117,29 @@
   max-width: 352px;
 }
 
+.story-caption--center,
+.story-caption--left,
+.story-caption--right {
+  bottom: max(40px, 5.5%);
+}
+
 .story-caption--center {
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
-  bottom: max(46px, 6.5%);
   text-align: center;
 }
 
 .story-caption--center .story-caption-inner { max-width: 560px; }
 
 .story-caption--left {
-  left: clamp(24px, 5vw, 88px);
-  top: 31%;
+  left: clamp(24px, 6vw, 104px);
+  text-align: left;
 }
 
 .story-caption--right {
-  right: clamp(24px, 5vw, 88px);
-  top: 47%;
+  right: clamp(24px, 6vw, 104px);
   display: flex;
   justify-content: flex-end;
   text-align: right;
@@ -297,6 +305,7 @@
 .story--static .story-canvas {
   position: relative;
   inset: auto;
+  transform: none;
   width: 100%;
   height: auto;
   aspect-ratio: 760 / 940;
@@ -365,13 +374,12 @@
 
 @media (max-width: 1359px) {
   .story { height: 340vh; }
-  .story-canvas { top: 96px; left: 0; right: 0; bottom: 252px; }
+  .story-canvas { height: min(52svh, 480px); }
   .story-caption--left,
   .story-caption--right {
     left: 0;
     right: 0;
-    top: auto;
-    bottom: 66px;
+    bottom: 56px;
     display: flex;
     justify-content: center;
     text-align: center;
@@ -386,7 +394,7 @@
 
 @media (max-width: 1000px) {
   .story { height: 320vh; }
-  .story-canvas { top: 88px; bottom: 214px; }
+  .story-canvas { height: min(46svh, 400px); }
   .story-rail { right: 10px; gap: 10px; }
   .story-dot { width: 22px; height: 22px; }
   .story-caption h2 { font-size: clamp(26px, 4.4vw, 34px); }
@@ -394,7 +402,7 @@
 
 @media (max-width: 760px) {
   .story { height: 300vh; }
-  .story-canvas { top: 78px; bottom: 232px; }
+  .story-canvas { height: 44svh; }
   .story-caption-inner { max-width: 340px; }
   .story-caption h2 { font-size: clamp(24px, 6.4vw, 30px); }
   .story-body { font-size: 12px; line-height: 1.8; margin-top: 12px; }
@@ -408,7 +416,7 @@
 
 @media (max-width: 600px) {
   .story { height: 280vh; }
-  .story-canvas { top: 74px; bottom: 248px; }
+  .story-canvas { height: 42svh; }
   .story-caption--center .story-body,
   .story-caption--left .story-body,
   .story-caption--right .story-body { max-width: 310px; }
@@ -426,7 +434,7 @@
    band so the artwork never collapses. */
 @media (max-height: 660px) {
   .story-stage { min-height: 0; }
-  .story-canvas { top: 58px; bottom: 132px; }
+  .story-canvas { height: 56svh; }
   .story-caption--left,
   .story-caption--right,
   .story-caption--center { bottom: 22px; }
