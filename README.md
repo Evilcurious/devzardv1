@@ -5,6 +5,7 @@ A responsive, original software agency website built with React, TypeScript, Vit
 ## Included
 
 - A custom vector interpretation of the supplied Devzard mark, charcoal/cyan design system, sticky navigation, and accessible mobile menu.
+- A scroll-driven hero story: the product separates into its interface, frame, circuit board, processing core and chassis as you scroll, then reassembles, with four synced text chapters.
 - An interactive Alwazir demonstration with five workspace views, search, date-range changes, order filters, order detail dialogs, and CSV exports.
 - Five service detail dialogs with animated interface illustrations and project inquiry handoffs.
 - A data-driven Work section featuring DeepHQ and linking directly to its live website. The existing Alwazir demo and case study are retained but are not featured.
@@ -17,6 +18,8 @@ A responsive, original software agency website built with React, TypeScript, Vit
 
 - `src/App.tsx`: application entry point, page routing, and inquiry handoff state.
 - `src/components/`: modular homepage sections, shared UI, and interactive workspace.
+- `src/components/DevzardScrollExperience.tsx`: hero scroll story (pinned canvas, chapters, chapter rail).
+- `src/components/deviceScene.ts`: the device artwork, drawn as vector layers on the canvas.
 - `src/pages/`: Alwazir case study, resource pages, and not-found page.
 - `src/data/site.ts`: deployment settings, services, projects, process, FAQs, and illustrative dashboard data.
 - `src/lib/`: navigation, downloads, and page metadata.
@@ -57,6 +60,44 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 
 - Dev: `npm run dev` (the API is mounted into Vite).
 - Prod: `npm run build` then `npm start` (Express serves `dist/` and the API; `/admin` refreshes return `index.html`).
+
+## Scroll experience
+
+`src/components/DevzardScrollExperience.tsx` renders the homepage section directly below the hero (`#story`).
+
+- The section is a tall track (`380vh` desktop, shorter on mobile). A sticky, viewport-sized stage is pinned inside it, and a single passive `scroll` listener maps the track's progress to a canvas frame.
+- Scroll work is batched into one `requestAnimationFrame` per frame. Captions, the chapter rail, and the canvas are written to directly (`style.setProperty` / `classList`), never through React state, so scrolling does not re-render or repaint more than once per frame.
+- The device artwork lives in `deviceScene.ts` and is drawn as vector layers, so it stays sharp at every size and needs no network requests. The canvas keeps a transparent background and fits the artwork inside its own box (`contain`), so it blends into the page section without edges.
+- Chapters are defined in one place: the `CHAPTERS` array (scroll position, alignment, title, copy, optional CTA). The first chapter is clamped on at the top of the track and the last at the end, so the opening and closing lines stay readable instead of fading into the section edges.
+
+### Using a pre-rendered image sequence instead
+
+The scene also supports a raster sequence. To swap it in:
+
+1. Render zero-padded frames (WebP or AVIF) at a consistent size and framing, e.g. `frame_0001.webp`, `frame_0002.webp`, … Put them in `public/images/devzard-sequence/`.
+2. Edit `SEQUENCE` at the top of `DevzardScrollExperience.tsx`:
+
+   ```ts
+   export const SEQUENCE = {
+     enabled: true,
+     directory: '/images/devzard-sequence',
+     pattern: 'frame_',
+     extension: 'webp',
+     pad: 4,
+     frames: 60,                       // number of frames you actually added
+     fallbackImage: '/images/devzard-social.jpg',
+   } as const;
+   ```
+
+3. Keep `pad` equal to the number of digits in the filenames. `frames` is the only place the frame count lives — nothing else assumes a length.
+
+Frames are preloaded before scroll-driven animation starts; until then the vector scene keeps rendering, so the section never shows an empty box, and a failed sequence falls back automatically. Each frame is drawn `contain`-style at the available aspect ratio, so mixed sizes do not crop.
+
+### Motion and accessibility
+
+- `prefers-reduced-motion: reduce` replaces the pinned story with a static, fully readable version: one still frame of the product plus the same four chapters as ordinary content. Hero parallax is also disabled.
+- The hero gets a small, rAF-batched parallax on the product mockup (desktop only, max 46px) and a "scroll inside the build" cue that links to `#story`.
+- The pinned stage exposes a hidden `<h2>` and description for screen readers; the canvas itself is `aria-hidden`. Chapter buttons in the rail are real `<button>`s that scroll to their chapter.
 
 ## Deploy
 
