@@ -1,48 +1,46 @@
 /**
  * Hero laptop scene.
  *
- * A silver clamshell that opens on its own when the page loads: closed on
- * arrival, the lid lifts, the display lights up and the hero copy is thrown
- * out of it. The animation is time-based (see `HERO_ANIMATION`), runs once, and
- * leaves the laptop standing open — nothing here depends on scrolling.
+ * A silver clamshell, open from the first frame, facing the viewer. The hero
+ * copy is not drawn here — it lives in the DOM over the display (the component
+ * positions it from `laptopMetrics`, so the two cannot drift apart). What this
+ * file draws is the machine, the glass and the light around it.
  *
- * Everything is vector art drawn to a 2D canvas. Open, the lid is a quad
- * projected from a simple 3D model, so the hinge motion is real:
- *
- *   free edge y = hingeY + depth·cos θ − lidHeight·sin θ
- *
- * Closed, it is drawn as a shallow trapezoid on the desk — narrower at the
- * back, with a front lip, hinge barrel and an engraved wordmark — which is
- * what separates "laptop lid" from "appliance panel".
+ * Nothing is scroll-mapped: the only inputs are elapsed time (for the idle
+ * effects) and a pointer offset (for a small parallax drift). Both are gentle
+ * on purpose — the display has to stay readable at all times.
  */
 
 const clamp01 = (value: number) => (value < 0 ? 0 : value > 1 ? 1 : value);
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+const TAU = Math.PI * 2;
 
 function smoothstep(value: number) {
   const t = clamp01(value);
   return t * t * (3 - 2 * t);
 }
 
+/** Deterministic 0–1 noise, so the dust motes sit still between frames. */
+function hash(seed: number) {
+  const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return value - Math.floor(value);
+}
+
 /** Aluminium palette, shared by the lid, the deck and the lip. */
 const SILVER = {
-  highlight: '#f2f6f8',
-  light: '#dee5ea',
-  base: '#c6cfd6',
-  mid: '#aab5bd',
-  low: '#87929c',
-  edge: '#5d6871',
-  seam: '#3d474f',
+  highlight: '#f4f8fa',
+  light: '#e2e9ee',
+  base: '#c8d1d8',
+  mid: '#a9b4bd',
+  low: '#848f99',
+  edge: '#5a656e',
+  seam: '#38424a',
 } as const;
 
 /** Lid aspect (width ÷ height) — a 16:10 laptop. */
 export const LID_RATIO = 1.62;
-/** Deck depth as a fraction of the lid height, once open. */
-const DECK_DEPTH = 0.42;
-/** Depth of the lid lying on the deck, as a fraction of the lid height. */
-const CLOSED_DEPTH = 0.4;
-/** How far the lid opens: a hair past vertical, like a real hinge stop. */
-const MAX_ANGLE = (100 * Math.PI) / 180;
+/** Deck depth as a fraction of the lid height. */
+const DECK_DEPTH = 0.44;
 
 export type HeroLayoutMode = 'overlay' | 'stacked';
 
@@ -51,11 +49,11 @@ export interface LaptopMetrics {
   /** Lid width and height in CSS pixels. */
   lidW: number;
   lidH: number;
-  /** Projected depth of the keyboard deck. */
+  /** Depth of the keyboard deck, seen in perspective. */
   deckDepth: number;
-  /** Top edge of the screen when fully open. */
+  /** Top edge of the lid. */
   screenTop: number;
-  /** Where the lid meets the deck (the hinge), when fully open. */
+  /** Where the lid meets the deck (the hinge). */
   hingeY: number;
 }
 
@@ -64,74 +62,52 @@ export interface LaptopMetrics {
  * hero copy read from this, so they cannot drift apart.
  */
 export function laptopMetrics(width: number, height: number): LaptopMetrics {
-  const overlayLidW = Math.min(width * 0.64, height * 0.5 * LID_RATIO);
-  const overlay = overlayLidW >= 520 && height >= 620;
+  const overlay = width >= 880 && height >= 600;
 
   if (!overlay) {
-    // Leave the top of the stage free for the copy: the laptop is sized from
-    // whatever height is left after that reserve, never just from the width.
-    const reserve = Math.max(150, height * 0.3);
-    const fromHeight = (height - reserve) * 0.78 * LID_RATIO;
-    const lidW = Math.max(180, Math.min(width * 0.86, 560, fromHeight));
+    // Narrow stages: the copy gets the top of the stage and the laptop sits
+    // beneath it, sized from the height that is actually left over.
+    const reserve = Math.max(210, height * 0.33);
+    const available = Math.max(150, height - reserve);
+    const fromHeight = available * 0.7 * LID_RATIO;
+    const lidW = Math.max(190, Math.min(width * 0.94, 600, fromHeight));
     const lidH = lidW / LID_RATIO;
     const deckDepth = lidH * DECK_DEPTH;
-    const hingeY = height - deckDepth - Math.max(16, height * 0.055);
+    const hingeY = height - deckDepth - Math.max(20, height * 0.05);
     return { mode: 'stacked', lidW, lidH, deckDepth, screenTop: hingeY - lidH, hingeY };
   }
 
-  const lidW = overlayLidW;
+  // Wide stages: the display is the hero, so it takes as much of the viewport
+  // as it can without crowding the deck or the desk.
+  const lidW = Math.min(width * 0.82, 940, ((height - 120) / (1 + DECK_DEPTH * 1.14)) * LID_RATIO);
   const lidH = lidW / LID_RATIO;
   const deckDepth = lidH * DECK_DEPTH;
-  const screenTop = Math.max(height * 0.16, (height - lidH - deckDepth) / 2 - height * 0.03);
+  const screenTop = Math.max(24, (height - lidH - deckDepth) / 2 - 8);
   return { mode: 'overlay', lidW, lidH, deckDepth, screenTop, hingeY: screenTop + lidH };
 }
 
-/* ── timeline ───────────────────────────────────────────────────────────── */
+/* ── reveal ─────────────────────────────────────────────────────────────── */
 
 /**
- * The whole intro, in one place: how long it runs and when each beat lands on
- * that clock. The component plays it once; the canvas and the copy read the
- * same numbers through `heroTimeline` / `copyStrength`.
+ * How the hero copy arrives. One short pass (~1.4s) rather than an intro: the
+ * machine is already open, the copy simply settles onto the glass with a
+ * stagger. Values are fractions of `durationMs`.
  */
-export const HERO_ANIMATION = {
-  /** Total run time, milliseconds. */
-  durationMs: 4600,
-  /** Lid travel. */
-  openStart: 0.06,
-  openEnd: 0.54,
-  /** Copy lines, in reading order, thrown out of the screen. */
+export const HERO_REVEAL = {
+  durationMs: 1400,
   copy: {
-    brand: { start: 0.42, end: 0.6 },
-    headline: { start: 0.47, end: 0.66 },
-    description: { start: 0.53, end: 0.72 },
-    actions: { start: 0.59, end: 0.8 },
+    brand: { start: 0.02, end: 0.34 },
+    headline: { start: 0.1, end: 0.46 },
+    description: { start: 0.24, end: 0.62 },
+    actions: { start: 0.38, end: 0.8 },
   },
 } as const;
 
-export type HeroLine = keyof typeof HERO_ANIMATION.copy;
-
-export interface HeroTimeline {
-  /** 0 = lid shut, 1 = fully open. */
-  open: number;
-  /** Emergence of each hero line, in reading order. */
-  lines: [number, number, number, number];
-  /** Extra bloom while the copy is being handed out. */
-  glow: number;
-}
-
-const LINE_ORDER: HeroLine[] = ['brand', 'headline', 'description', 'actions'];
-
-export function heroTimeline(progress: number): HeroTimeline {
-  const p = clamp01(progress);
-  const { openStart, openEnd } = HERO_ANIMATION;
-  const open = smoothstep((p - openStart) / (openEnd - openStart));
-  const lines = LINE_ORDER.map(line => clamp01(copyStrength(line, p))) as HeroTimeline['lines'];
-  return { open, lines, glow: Math.max(...lines) };
-}
+export type HeroLine = keyof typeof HERO_REVEAL.copy;
 
 /** Reveal weight for one copy line at a given progress, 0–1. */
 export function copyStrength(line: HeroLine, progress: number) {
-  const { start, end } = HERO_ANIMATION.copy[line];
+  const { start, end } = HERO_REVEAL.copy[line];
   return clamp01((progress - start) / (end - start));
 }
 
@@ -139,57 +115,38 @@ export interface LaptopFrame {
   width: number;
   height: number;
   dpr: number;
-  /** 0–1 through `HERO_ANIMATION.durationMs`. */
-  progress: number;
+  /** Seconds since mount — drives every idle loop. */
+  time: number;
+  /** 0–1 through `HERO_REVEAL.durationMs`. */
+  reveal: number;
+  /** Pointer parallax, each −1…1, already smoothed. */
+  px: number;
+  py: number;
 }
 
 export function drawLaptopScene(ctx: CanvasRenderingContext2D, frame: LaptopFrame): void {
-  const { width, height, dpr, progress } = frame;
+  const { width, height, dpr, time, px, py } = frame;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
   if (width <= 0 || height <= 0) return;
 
   const m = laptopMetrics(width, height);
-  const { open, glow } = heroTimeline(progress);
+  const reveal = clamp01(frame.reveal);
+  const glow = 0.55 + 0.45 * reveal;
 
-  // At rest the closed laptop sits a touch higher and larger — it is the whole
-  // composition — then settles as the lid comes up.
-  const scale = 1 + 0.035 * (1 - open);
-  const closedHinge = Math.min(m.hingeY, height * 0.56 - (m.lidH * CLOSED_DEPTH) / 2);
-  const hingeY = lerp(closedHinge, m.hingeY, open);
-  const lidW = m.lidW * scale;
-  const lidH = m.lidH * scale;
-  const deckDepth = m.deckDepth * scale;
-
-  const sin = Math.sin(MAX_ANGLE * open);
-
-  // A lid only a few degrees up is seen almost edge-on and still covers its
-  // keyboard, so blend between two honest pictures: the closed slab lying on
-  // the desk, and the lid standing above the open deck.
-  const openMix = smoothstep((sin - 0.34) / 0.26);
-  const closedMix = 1 - openMix;
-
-  const narrow = 1 - 0.075 * sin;
-  const lidHeight = Math.max(0, lidH * sin);
-
-  // Everything below is drawn around x = 0; one translate centres the device.
+  // A slow float, plus a few pixels of parallax that follow the pointer.
   ctx.save();
-  ctx.translate(width / 2, 0);
+  ctx.translate(width / 2 + px * 9, py * 5 + Math.sin(time * 0.85) * 1.8);
 
-  drawShadow(ctx, hingeY, lidW, lidH, deckDepth, openMix);
-  drawScreenSpill(ctx, hingeY, lidW, deckDepth, sin, glow);
+  drawDeskGlow(ctx, m, height, reveal);
+  drawShadow(ctx, m);
+  drawLightSpill(ctx, m, reveal);
+  drawContactShadow(ctx, m);
+  drawDeck(ctx, m, time, glow);
+  drawLid(ctx, m, time, glow, reveal);
+  drawHinge(ctx, m);
+  drawDust(ctx, m, time, width, reveal);
 
-  if (openMix > 0.01) drawDeck(ctx, hingeY, lidW, deckDepth, openMix, glow);
-  if (closedMix > 0.01) drawClosedLid(ctx, hingeY, lidW, lidH, open, closedMix);
-  if (openMix > 0.01) {
-    drawStandingLid(ctx, hingeY, lidW, lidHeight, narrow, open, openMix);
-    if (sin > 0.25) {
-      drawScreen(ctx, hingeY, lidW, lidHeight, narrow, sin, progress, glow, openMix, m.mode !== 'overlay');
-    }
-    if (glow > 0.02 && m.mode === 'overlay') drawLift(ctx, lidW, hingeY - lidHeight, lidH, glow);
-  }
-
-  drawHingeBar(ctx, hingeY, lidW, openMix);
   ctx.restore();
 }
 
@@ -197,474 +154,519 @@ type Point = [number, number];
 
 /* ── desk, light, shadow ────────────────────────────────────────────────── */
 
-function drawShadow(
+/** The room light pooling around the machine, so it sits in a scene. */
+function drawDeskGlow(
   ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  lidH: number,
-  deckDepth: number,
-  openMix: number,
+  m: LaptopMetrics,
+  height: number,
+  reveal: number,
 ) {
-  const closedDepth = lidH * CLOSED_DEPTH;
-  const centreY = hingeY + lerp(closedDepth * 0.52, deckDepth * 0.62, openMix);
-  const rx = lidW * lerp(0.52, 0.58, openMix);
-  const ry = lidW * lerp(0.055, 0.1, openMix);
+  const radius = m.lidW * 0.95;
+  const centreY = m.screenTop + m.lidH * 0.42;
+  const pool = ctx.createRadialGradient(0, centreY, 0, 0, centreY, radius);
+  pool.addColorStop(0, `rgba(96, 214, 232, ${0.1 * reveal})`);
+  pool.addColorStop(0.5, `rgba(52, 130, 168, ${0.05 * reveal})`);
+  pool.addColorStop(1, 'rgba(24, 52, 74, 0)');
+  ctx.fillStyle = pool;
+  ctx.beginPath();
+  ctx.ellipse(0, centreY, radius, radius * 0.82, 0, 0, TAU);
+  ctx.fill();
+
+  // Horizon shadow, so the desk does not read as empty space.
+  const floor = ctx.createLinearGradient(0, height * 0.72, 0, height);
+  floor.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  floor.addColorStop(1, 'rgba(0, 0, 0, 0.34)');
+  ctx.fillStyle = floor;
+  ctx.fillRect(-m.lidW, height * 0.72, m.lidW * 2, height * 0.28);
+}
+
+/** A tight dark band under the front edge, so the base sits on the desk. */
+function drawContactShadow(ctx: CanvasRenderingContext2D, m: LaptopMetrics) {
+  const y = m.hingeY + m.deckDepth;
+  const lip = m.deckDepth * 0.14;
+  const contact = ctx.createLinearGradient(0, y, 0, y + lip * 2.6);
+  contact.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+  contact.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.save();
+  ctx.translate(0, y);
+  ctx.scale(1, lip * 1.3);
+  ctx.fillStyle = contact;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, m.lidW * 0.54, 1, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawShadow(ctx: CanvasRenderingContext2D, m: LaptopMetrics) {
+  const centreY = m.hingeY + m.deckDepth * 0.62;
+  const rx = m.lidW * 0.6;
+  const ry = m.lidW * 0.105;
 
   ctx.save();
   ctx.translate(0, centreY);
   ctx.scale(1, ry / rx);
   const shadow = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-  shadow.addColorStop(0, `rgba(0, 0, 0, ${lerp(0.58, 0.42, openMix)})`);
-  shadow.addColorStop(0.45, 'rgba(0, 0, 0, 0.22)');
+  shadow.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+  shadow.addColorStop(0.42, 'rgba(0, 0, 0, 0.24)');
   shadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.arc(0, 0, rx, 0, Math.PI * 2);
+  ctx.arc(0, 0, rx, 0, TAU);
   ctx.fill();
   ctx.restore();
 }
 
-/** Light thrown forward from the display onto the deck and the desk. */
-function drawScreenSpill(
-  ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  deckDepth: number,
-  sin: number,
-  glow: number,
-) {
-  const strength = sin * 0.45 + glow * 0.55;
-  if (strength <= 0.02) return;
-  const radius = lidW * 0.6;
-  const spill = ctx.createRadialGradient(0, hingeY + deckDepth * 0.3, 8, 0, hingeY + deckDepth * 0.3, radius);
-  spill.addColorStop(0, `rgba(86, 214, 232, ${0.13 * strength})`);
-  spill.addColorStop(0.45, `rgba(64, 170, 196, ${0.06 * strength})`);
-  spill.addColorStop(1, 'rgba(40, 120, 150, 0)');
+/** Display light falling onto the keyboard and the desk in front of it. */
+function drawLightSpill(ctx: CanvasRenderingContext2D, m: LaptopMetrics, reveal: number) {
+  const strength = 0.35 + reveal * 0.65;
+  const top = m.hingeY - m.deckDepth * 0.1;
+  const radius = m.lidW * 0.62;
+  const spill = ctx.createRadialGradient(0, top, 6, 0, top, radius);
+  spill.addColorStop(0, `rgba(110, 224, 238, ${0.16 * strength})`);
+  spill.addColorStop(0.45, `rgba(64, 166, 198, ${0.07 * strength})`);
+  spill.addColorStop(1, 'rgba(36, 96, 128, 0)');
   ctx.fillStyle = spill;
   ctx.beginPath();
-  ctx.ellipse(0, hingeY + deckDepth * 0.45, radius, deckDepth * 1.4 + 40, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, top + m.deckDepth * 0.35, radius, m.deckDepth * 1.5 + 46, 0, 0, TAU);
   ctx.fill();
 }
 
-/** Soft bloom lifting out of the display while the copy is thrown out. */
-function drawLift(ctx: CanvasRenderingContext2D, lidW: number, topY: number, lidH: number, glow: number) {
-  const height = Math.max(0, Math.min(lidH * 0.7, topY - 8));
-  if (height <= 0) return;
-  const radius = lidW * 0.6;
-  ctx.save();
-  ctx.translate(0, topY - height * 0.3);
-  ctx.scale(1, height / radius);
-  const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-  bloom.addColorStop(0, `rgba(108, 222, 232, ${0.09 * glow})`);
-  bloom.addColorStop(0.45, `rgba(108, 222, 232, ${0.04 * glow})`);
-  bloom.addColorStop(1, 'rgba(108, 222, 232, 0)');
-  ctx.fillStyle = bloom;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
+/* ── deck ───────────────────────────────────────────────────────────────── */
 
-/* ── closed lid ─────────────────────────────────────────────────────────── */
+function drawDeck(ctx: CanvasRenderingContext2D, m: LaptopMetrics, time: number, glow: number) {
+  const top = m.hingeY;
+  const bottom = m.hingeY + m.deckDepth;
+  const lip = m.deckDepth * 0.14;
+  const backHalf = m.lidW / 2;
+  const frontHalf = backHalf * 1.035;
+  const frontLip = backHalf * 1.029;
 
-/**
- * The laptop shut on the desk: a shallow trapezoid (wider at the front, so it
- * reads in perspective), a brushed aluminium face, a lip of visible thickness
- * at the front, a hinge barrel at the back and the wordmark etched on the lid.
- */
-function drawClosedLid(
-  ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  lidH: number,
-  open: number,
-  alpha: number,
-) {
-  // The lid foreshortens towards the hinge as it lifts, so the closed pose
-  // dissolves into the standing one instead of sliding away.
-  const depth = lidH * CLOSED_DEPTH * (1 - 0.88 * smoothstep(open));
-  const halfFront = lidW / 2;
-  const halfBack = halfFront * 0.925;
-  const backY = hingeY;
-  const frontY = hingeY + depth;
-  const thickness = lidW * 0.032;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  // Body thickness below the front edge.
-  const lip = ctx.createLinearGradient(0, frontY, 0, frontY + thickness);
-  lip.addColorStop(0, SILVER.mid);
-  lip.addColorStop(0.35, SILVER.low);
-  lip.addColorStop(1, SILVER.edge);
-  ctx.fillStyle = lip;
-  roundedPolygon(ctx, [
-    [-halfFront, frontY],
-    [halfFront, frontY],
-    [halfFront * 0.986, frontY + thickness],
-    [-halfFront * 0.986, frontY + thickness],
-  ], 5);
-  ctx.fill();
-
-  // Lid face, in perspective.
-  const face: Point[] = [
-    [-halfBack, backY],
-    [halfBack, backY],
-    [halfFront, frontY],
-    [-halfFront, frontY],
-  ];
-  roundedPolygon(ctx, face, 12);
-  const metal = ctx.createLinearGradient(-halfFront, backY, halfFront, frontY);
-  metal.addColorStop(0, SILVER.highlight);
-  metal.addColorStop(0.28, SILVER.light);
-  metal.addColorStop(0.62, SILVER.base);
-  metal.addColorStop(0.86, SILVER.mid);
-  metal.addColorStop(1, SILVER.low);
-  ctx.fillStyle = metal;
-  ctx.fill();
-
-  ctx.save();
-  ctx.clip();
-  // Specular sweep along the lid, and a cool bounce along the back edge.
-  const sheen = ctx.createLinearGradient(-halfFront * 0.5, backY, halfFront * 0.15, frontY);
-  sheen.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-  sheen.addColorStop(0.42, 'rgba(255, 255, 255, 0.08)');
-  sheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(-halfFront, backY, lidW, depth);
-
-  const bounce = ctx.createLinearGradient(0, backY, 0, backY + depth * 0.35);
-  bounce.addColorStop(0, 'rgba(120, 150, 168, 0.35)');
-  bounce.addColorStop(1, 'rgba(120, 150, 168, 0)');
-  ctx.fillStyle = bounce;
-  ctx.fillRect(-halfFront, backY, lidW, depth * 0.35);
-
-  // Hairline seam where the lid meets the base.
-  ctx.strokeStyle = 'rgba(58, 70, 79, 0.35)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-halfFront * 0.98, frontY - 2);
-  ctx.lineTo(halfFront * 0.98, frontY - 2);
-  ctx.stroke();
-  ctx.restore();
-
-  // Rim light: one bright edge along the back, one soft edge at the front.
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(-halfBack, backY + 0.5);
-  ctx.lineTo(halfBack, backY + 0.5);
-  ctx.stroke();
-
-  // Etched DEVZARD wordmark, kept in the upper half of the lid so it is never
-  // crossed by the screen/copy boundary when the lid starts to lift.
-  const textY = backY + depth * 0.4;
-  const fontSize = Math.max(9, lidW * 0.042);
-  ctx.font = `600 ${fontSize}px Manrope, system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const word = 'DEVZARD';
-  const tracking = fontSize * 0.28;
-  const width = measureTracked(ctx, word, tracking);
-  drawTracked(ctx, word, -width / 2, textY, tracking, 'rgba(64, 76, 85, 0.55)');
-  drawTracked(ctx, word, -width / 2, textY + 1, tracking, 'rgba(255, 255, 255, 0.75)');
-
-  // The mark's accent dot, so the lid matches the brand lockup.
-  ctx.fillStyle = 'rgba(108, 222, 232, 0.9)';
-  ctx.beginPath();
-  ctx.arc(width / 2 + fontSize * 0.14, textY + fontSize * 0.32, fontSize * 0.14, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-/* ── open laptop ────────────────────────────────────────────────────────── */
-
-function drawDeck(
-  ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  deckDepth: number,
-  alpha: number,
-  glow: number,
-) {
-  const top = hingeY;
-  const bottom = hingeY + deckDepth;
-  const backHalf = lidW / 2;
-  const frontHalf = backHalf * 1.02;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  // Top face, in perspective: the keyboard tray narrows towards the hinge.
-  roundedPolygon(ctx, [
+  // One silhouette for the base: top face plus the thickness below the front
+  // edge, so the two never look like stacked slabs.
+  const silhouette: Point[] = [
     [-backHalf, top],
     [backHalf, top],
     [frontHalf, bottom],
+    [frontLip, bottom + lip],
+    [-frontLip, bottom + lip],
     [-frontHalf, bottom],
-  ], deckDepth * 0.2);
-  const deck = ctx.createLinearGradient(0, top, 0, bottom);
-  deck.addColorStop(0, SILVER.base);
-  deck.addColorStop(0.4, SILVER.light);
-  deck.addColorStop(0.88, SILVER.base);
-  deck.addColorStop(1, SILVER.mid);
-  ctx.fillStyle = deck;
+  ];
+  roundedPolygon(ctx, silhouette, m.deckDepth * 0.06);
+  // Light comes from above, so the gradient runs down the depth of the base
+  // rather than across it — a diagonal one reads as a hard wedge.
+  const shell = ctx.createLinearGradient(0, top, 0, bottom + lip);
+  shell.addColorStop(0, SILVER.base);
+  shell.addColorStop(0.16, SILVER.light);
+  shell.addColorStop(0.46, SILVER.highlight);
+  shell.addColorStop(0.78, SILVER.light);
+  shell.addColorStop(0.9, SILVER.base);
+  shell.addColorStop(0.96, SILVER.mid);
+  shell.addColorStop(1, SILVER.edge);
+  ctx.fillStyle = shell;
   ctx.fill();
 
   ctx.save();
+  roundedPolygon(ctx, silhouette, m.deckDepth * 0.06);
   ctx.clip();
 
-  // Keyboard well.
-  const wellTop = top + deckDepth * 0.1;
-  const wellBottom = bottom - deckDepth * 0.36;
+  // Keyboard tray: a recessed plate, darker than the palm rest.
+  const wellTop = top + m.deckDepth * 0.07;
+  const wellBottom = top + m.deckDepth * 0.68;
   const wellHeight = Math.max(4, wellBottom - wellTop);
+  const wellInset = backHalf * 0.055;
+  const wellTopHalf = backHalf - wellInset * 1.05;
+  const wellBottomHalf = frontHalf - wellInset;
+  roundedPolygon(ctx, [
+    [-wellTopHalf, wellTop],
+    [wellTopHalf, wellTop],
+    [wellBottomHalf, wellBottom],
+    [-wellBottomHalf, wellBottom],
+  ], m.deckDepth * 0.045);
   const well = ctx.createLinearGradient(0, wellTop, 0, wellBottom);
-  well.addColorStop(0, 'rgba(30, 37, 43, 0.92)');
-  well.addColorStop(1, 'rgba(46, 54, 61, 0.88)');
+  well.addColorStop(0, '#6f7a84');
+  well.addColorStop(0.2, '#818d97');
+  well.addColorStop(1, '#8d99a3');
   ctx.fillStyle = well;
-  roundRectPath(ctx, -backHalf * 0.9, wellTop, backHalf * 1.8, wellHeight, deckDepth * 0.1);
   ctx.fill();
 
-  // Keys, in deck space so they splay with the perspective.
+  // Keys, laid out in deck space so they splay with the perspective.
   const rows = 5;
   const columns = 14;
   const keyTop = wellTop + wellHeight * 0.1;
-  const keyArea = wellHeight * 0.8;
+  const keyArea = wellHeight * 0.82;
   const rowH = keyArea / rows;
   for (let row = 0; row < rows; row += 1) {
-    const v = (keyTop - top) / deckDepth + ((row + 0.5) * rowH) / deckDepth;
-    const spread = backHalf * (1 + v * 0.055);
-    const rowWidth = spread * 1.76;
+    const v = (keyTop - top) / m.deckDepth + ((row + 0.6) * rowH) / m.deckDepth;
+    const spread = backHalf * (1 + v * 0.045);
+    const rowWidth = spread * 1.74;
     const left = -rowWidth / 2;
     const cellW = rowWidth / columns;
-    const y = top + v * deckDepth;
+    const y = keyTop + row * rowH;
     const inset = cellW * 0.11;
     const isBottom = row === rows - 1;
+
+    // One cap gradient per row — 70 were being built every frame before.
+    const h = rowH * 0.62;
+    const radius = Math.min(3, rowH * 0.18);
+    const cap = ctx.createLinearGradient(0, y + rowH * 0.16, 0, y + rowH * 0.16 + h);
+    cap.addColorStop(0, '#d3dbe1');
+    cap.addColorStop(0.6, '#c2ccd4');
+    cap.addColorStop(1, '#a8b4bd');
 
     for (let column = 0; column < columns; column += 1) {
       if (isBottom && column > 3 && column < 10) continue;
       const keyWidth = isBottom && (column === 3 || column === 10) ? cellW * 2.05 : cellW;
       const keyX = isBottom && column === 10 ? left + column * cellW - cellW * 0.05 : left + column * cellW;
-      const key = ctx.createLinearGradient(0, y, 0, y + rowH);
-      key.addColorStop(0, `rgba(${52 + row * 2}, ${60 + row * 2}, ${68 + row * 2}, 0.95)`);
-      key.addColorStop(1, `rgba(${30 + row}, ${36 + row}, ${42 + row}, 0.95)`);
-      ctx.fillStyle = key;
-      roundRectPath(ctx, keyX + inset, y + rowH * 0.24, keyWidth - inset * 2, rowH * 0.5, Math.min(3, rowH * 0.16));
+      const x = keyX + inset;
+      const w = keyWidth - inset * 2;
+
+      // Side wall, then the slightly brighter top face.
+      ctx.fillStyle = 'rgba(84, 95, 105, 0.75)';
+      roundRectPath(ctx, x, y + rowH * 0.2, w, h, radius);
+      ctx.fill();
+      ctx.fillStyle = cap;
+      roundRectPath(ctx, x, y + rowH * 0.16, w, h, radius);
       ctx.fill();
     }
 
     if (isBottom) {
-      const spaceLeft = left + cellW * 4;
-      const spaceWidth = cellW * 6;
-      ctx.fillStyle = 'rgba(44, 51, 58, 0.95)';
-      roundRectPath(ctx, spaceLeft + inset, y + rowH * 0.24, spaceWidth - inset * 2, rowH * 0.5, Math.min(3, rowH * 0.16));
+      const x = left + cellW * 4 + inset;
+      const w = cellW * 6 - inset * 2;
+      ctx.fillStyle = 'rgba(84, 95, 105, 0.75)';
+      roundRectPath(ctx, x, y + rowH * 0.2, w, h, radius);
+      ctx.fill();
+      ctx.fillStyle = cap;
+      roundRectPath(ctx, x, y + rowH * 0.16, w, h, radius);
       ctx.fill();
     }
   }
 
-  // Trackpad: a slightly darker plate with a hairline outline.
-  const padW = backHalf * 0.44;
-  const padTop = wellBottom + deckDepth * 0.02;
-  const padH = Math.max(0, bottom - padTop - deckDepth * 0.09);
+  // Trackpad: a cooler plate with a hairline outline.
+  const padW = backHalf * 0.38;
+  const padTop = top + m.deckDepth * 0.745;
+  const padH = Math.max(0, bottom - padTop - m.deckDepth * 0.045);
   if (padH > 4) {
-    ctx.fillStyle = 'rgba(150, 161, 171, 0.45)';
-    roundRectPath(ctx, -padW / 2, padTop, padW, padH, 4);
+    const pad = ctx.createLinearGradient(0, padTop, 0, padTop + padH);
+    pad.addColorStop(0, 'rgba(214, 222, 228, 0.9)');
+    pad.addColorStop(1, 'rgba(188, 198, 206, 0.85)');
+    ctx.fillStyle = pad;
+    roundRectPath(ctx, -padW / 2, padTop, padW, padH, 5);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.strokeStyle = 'rgba(92, 104, 114, 0.35)';
     ctx.lineWidth = 1;
     ctx.stroke();
   }
 
-  // Display light across the tray.
-  if (glow > 0.02) {
-    const light = ctx.createLinearGradient(0, top, 0, bottom);
-    light.addColorStop(0, `rgba(120, 226, 240, ${0.12 * glow})`);
-    light.addColorStop(0.55, 'rgba(120, 226, 240, 0)');
-    ctx.fillStyle = light;
-    ctx.fillRect(-backHalf, top, lidW, deckDepth);
-  }
-  ctx.restore();
+  // Screen light along the back of the tray.
+  const light = ctx.createLinearGradient(0, top, 0, bottom);
+  light.addColorStop(0, `rgba(124, 228, 240, ${0.18 * glow})`);
+  light.addColorStop(0.45, 'rgba(124, 228, 240, 0)');
+  ctx.fillStyle = light;
+  ctx.fillRect(-frontHalf, top, frontHalf * 2, m.deckDepth);
 
-  // Front edge: the base's thickness, catching a bright highlight.
-  const edge = ctx.createLinearGradient(0, bottom, 0, bottom + deckDepth * 0.2);
-  edge.addColorStop(0, SILVER.light);
-  edge.addColorStop(0.35, SILVER.mid);
-  edge.addColorStop(1, SILVER.edge);
-  ctx.fillStyle = edge;
-  roundRectPath(ctx, -frontHalf, bottom, frontHalf * 2, deckDepth * 0.2, deckDepth * 0.08, false);
-  ctx.fill();
+  // Specular sweep travelling across the metal, once every ~9s.
+  const pass = (time % 9) / 9;
+  if (pass < 0.3) {
+    const p = pass / 0.3;
+    const x = lerp(-frontHalf * 1.4, frontHalf * 1.4, p);
+    const band = ctx.createLinearGradient(x - m.lidW * 0.34, 0, x + m.lidW * 0.34, m.deckDepth * 0.5);
+    band.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    band.addColorStop(0.5, 'rgba(255, 255, 255, 0.065)');
+    band.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(-frontHalf, top, frontHalf * 2, m.deckDepth + lip);
+  }
 
   // Thumb scoop on the front edge.
-  ctx.fillStyle = 'rgba(72, 82, 91, 0.35)';
-  roundRectPath(ctx, -lidW * 0.09, bottom + deckDepth * 0.04, lidW * 0.18, deckDepth * 0.05, deckDepth * 0.02);
+  ctx.fillStyle = 'rgba(72, 82, 91, 0.28)';
+  roundRectPath(ctx, -m.lidW * 0.08, bottom + lip * 0.34, m.lidW * 0.16, lip * 0.36, lip * 0.16);
   ctx.fill();
-
   ctx.restore();
+
+  // Hairline around the silhouette, which is what gives the base its thickness.
+  ctx.strokeStyle = 'rgba(74, 85, 94, 0.4)';
+  ctx.lineWidth = 1;
+  roundedPolygon(ctx, silhouette, m.deckDepth * 0.06);
+  ctx.stroke();
 }
 
-/** The lid standing up from the hinge: aluminium frame, then the screen. */
-function drawStandingLid(
+/* ── lid + display ──────────────────────────────────────────────────────── */
+
+function drawLid(
   ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  lidHeight: number,
-  narrow: number,
-  open: number,
-  alpha: number,
+  m: LaptopMetrics,
+  time: number,
+  glow: number,
+  reveal: number,
 ) {
-  const half = lidW / 2;
-  const quad: Point[] = [
-    [-half, hingeY],
-    [half, hingeY],
-    [half * narrow, hingeY - lidHeight],
-    [-half * narrow, hingeY - lidHeight],
+  const half = m.lidW / 2;
+  const topHalf = half * 0.985;
+  const top = m.screenTop;
+  const bottom = m.hingeY;
+  const lidH = bottom - top;
+
+  const shell: Point[] = [
+    [-half, bottom],
+    [half, bottom],
+    [topHalf, top],
+    [-topHalf, top],
   ];
 
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  roundedPolygon(ctx, quad, lidW * 0.03);
-
-  const metal = ctx.createLinearGradient(-half, hingeY, half, hingeY - lidHeight);
+  roundedPolygon(ctx, shell, m.lidW * 0.028);
+  const metal = ctx.createLinearGradient(-half, bottom, half, top);
   metal.addColorStop(0, SILVER.low);
-  metal.addColorStop(0.3, SILVER.light);
-  metal.addColorStop(0.62, SILVER.base);
+  metal.addColorStop(0.24, SILVER.highlight);
+  metal.addColorStop(0.55, SILVER.light);
+  metal.addColorStop(0.82, SILVER.base);
   metal.addColorStop(1, SILVER.mid);
   ctx.fillStyle = metal;
   ctx.fill();
 
   ctx.save();
   ctx.clip();
-  const sheen = ctx.createLinearGradient(-half * 0.7, hingeY, half * 0.4, hingeY - lidHeight);
-  sheen.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
-  sheen.addColorStop(0.45, 'rgba(255, 255, 255, 0.05)');
-  sheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(-half, hingeY - lidHeight, lidW, lidHeight);
+
+  // Brushed-metal banding along the frame.
+  ctx.globalAlpha = 0.16;
+  for (let i = 0; i < 26; i += 1) {
+    const y = top + (i / 26) * lidH;
+    ctx.fillStyle = i % 2 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(90, 101, 110, 0.5)';
+    ctx.fillRect(-half, y, m.lidW, Math.max(0.6, lidH / 160));
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 
-  ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 + open * 0.15})`;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawScreen(
-  ctx: CanvasRenderingContext2D,
-  hingeY: number,
-  lidW: number,
-  lidHeight: number,
-  narrow: number,
-  sin: number,
-  progress: number,
-  glow: number,
-  alpha: number,
-  showMark: boolean,
-) {
-  const half = lidW / 2;
-  const inset = lidW * 0.022;
-  const quad: Point[] = [
-    [-half + inset, hingeY - inset * 0.4],
-    [half - inset, hingeY - inset * 0.4],
-    [half * narrow - inset * 0.9, hingeY - lidHeight + inset * 0.7],
-    [-half * narrow + inset * 0.9, hingeY - lidHeight + inset * 0.7],
+  // Bezel, then glass.
+  const bezel = m.lidW * 0.024;
+  // Thin bezel at the top and sides, a deeper chin for the etched mark.
+  const screen: Point[] = [
+    [-half + bezel, bottom - bezel * 2.1],
+    [half - bezel, bottom - bezel * 2.1],
+    [topHalf - bezel * 0.92, top + bezel * 1.5],
+    [-topHalf + bezel * 0.92, top + bezel * 1.5],
   ];
-
-  const light = smoothstep((sin - 0.6) / 0.25);
-  const screenAlpha = alpha * clamp01(light * 1.2);
-  if (screenAlpha <= 0.01) return;
-
-  ctx.save();
-  ctx.globalAlpha = screenAlpha;
-
-  // Black bezel.
-  roundedPolygon(ctx, quad, lidW * 0.022);
-  ctx.fillStyle = '#12171c';
+  roundedPolygon(ctx, screen, m.lidW * 0.014);
+  ctx.fillStyle = '#0d1216';
   ctx.fill();
 
-  ctx.save();
-  ctx.clip();
-  const top = Math.min(quad[0][1], quad[2][1]);
-  const bottom = Math.max(quad[0][1], quad[2][1]);
-  const left = -half;
-  const right = half;
+  drawGlass(ctx, m, screen, time, glow, reveal);
+  drawBezel(ctx, m, screen, bottom, bezel, glow, time);
 
-  const glass = ctx.createLinearGradient(0, top, 0, bottom);
-  glass.addColorStop(0, '#0d1519');
-  glass.addColorStop(0.55, '#0a1116');
-  glass.addColorStop(1, '#101b21');
+  // Rim light down the outer edges of the lid.
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+  ctx.lineWidth = 1;
+  roundedPolygon(ctx, shell, m.lidW * 0.028);
+  ctx.stroke();
+}
+
+/** The display itself: wallpaper, grid, sweeping light, reflection. */
+function drawGlass(
+  ctx: CanvasRenderingContext2D,
+  m: LaptopMetrics,
+  quad: Point[],
+  time: number,
+  glow: number,
+  reveal: number,
+) {
+  const left = quad[0][0];
+  const right = quad[1][0];
+  const top = quad[2][1];
+  const bottom = quad[0][1];
+  const width = right - left;
+  const height = bottom - top;
+
+  ctx.save();
+  roundedPolygon(ctx, quad, m.lidW * 0.014);
+  ctx.clip();
+
+  const glass = ctx.createLinearGradient(left, top, right, bottom);
+  glass.addColorStop(0, '#0a1116');
+  glass.addColorStop(0.48, '#081014');
+  glass.addColorStop(1, '#0b1620');
   ctx.fillStyle = glass;
-  ctx.fillRect(left, top, right - left, bottom - top);
+  ctx.fillRect(left, top, width, height);
+
+  // Two slow blooms, like a wallpaper breathing behind the copy.
+  const drift = Math.sin(time * 0.32) * width * 0.03;
+  const bloomA = ctx.createRadialGradient(
+    left + width * 0.3 + drift,
+    top + height * 0.28,
+    0,
+    left + width * 0.3 + drift,
+    top + height * 0.28,
+    width * 0.62,
+  );
+  bloomA.addColorStop(0, `rgba(48, 196, 220, ${0.17 * reveal})`);
+  bloomA.addColorStop(0.55, `rgba(30, 116, 150, ${0.07 * reveal})`);
+  bloomA.addColorStop(1, 'rgba(12, 40, 60, 0)');
+  ctx.fillStyle = bloomA;
+  ctx.fillRect(left, top, width, height);
+
+  const bloomB = ctx.createRadialGradient(
+    right - width * 0.14,
+    bottom - height * 0.16,
+    0,
+    right - width * 0.14,
+    bottom - height * 0.16,
+    width * 0.56,
+  );
+  bloomB.addColorStop(0, `rgba(64, 96, 216, ${0.15 * reveal})`);
+  bloomB.addColorStop(0.6, 'rgba(30, 44, 120, 0.05)');
+  bloomB.addColorStop(1, 'rgba(10, 16, 40, 0)');
+  ctx.fillStyle = bloomB;
+  ctx.fillRect(left, top, width, height);
 
   // Faint engineering grid.
-  ctx.strokeStyle = 'rgba(108, 222, 232, 0.05)';
+  ctx.strokeStyle = 'rgba(120, 226, 240, 0.05)';
   ctx.lineWidth = 1;
-  const step = Math.max(28, lidW / 14);
-  for (let x = left; x < right; x += step) {
+  const step = Math.max(26, m.lidW / 16);
+  for (let x = left; x <= right; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, bottom);
     ctx.stroke();
   }
-  for (let y = top; y < bottom; y += step) {
+  for (let y = top; y <= bottom; y += step) {
     ctx.beginPath();
     ctx.moveTo(left, y);
     ctx.lineTo(right, y);
     ctx.stroke();
   }
 
-  // A slow band of light travelling up the display as it powers on.
-  const sweep = top + (bottom - top) * (0.25 + 0.5 * clamp01(progress));
-  const band = ctx.createLinearGradient(0, sweep - lidHeight * 0.22, 0, sweep + lidHeight * 0.22);
-  band.addColorStop(0, 'rgba(108, 222, 232, 0)');
-  band.addColorStop(0.5, `rgba(108, 222, 232, ${0.05 + glow * 0.05})`);
-  band.addColorStop(1, 'rgba(108, 222, 232, 0)');
-  ctx.fillStyle = band;
-  ctx.fillRect(left, top, right - left, bottom - top);
-
-  if (showMark) {
-    ctx.globalAlpha = screenAlpha * 0.5;
-    ctx.fillStyle = '#e9f4f7';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = `650 ${Math.max(10, lidW * 0.032)}px Manrope, system-ui, sans-serif`;
-    ctx.fillText('Devzard.', 0, bottom - lidHeight * 0.06);
-    ctx.globalAlpha = screenAlpha;
+  // A wide band of light crossing the glass every ~7s.
+  const pass = (time % 7) / 7;
+  if (pass < 0.26) {
+    const p = smoothstep(pass / 0.26);
+    const centre = lerp(left - width * 0.4, right + width * 0.4, p);
+    const band = ctx.createLinearGradient(centre - width * 0.24, top, centre + width * 0.24, bottom);
+    band.addColorStop(0, 'rgba(150, 236, 248, 0)');
+    band.addColorStop(0.5, 'rgba(150, 236, 248, 0.075)');
+    band.addColorStop(1, 'rgba(150, 236, 248, 0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(left, top, width, height);
   }
 
-  // Glass reflection.
-  const sheen = ctx.createLinearGradient(left, top, right, bottom);
-  sheen.addColorStop(0, `rgba(226, 245, 250, ${0.08 + glow * 0.05})`);
-  sheen.addColorStop(0.35, 'rgba(226, 245, 250, 0.015)');
-  sheen.addColorStop(0.62, 'rgba(226, 245, 250, 0)');
-  sheen.addColorStop(1, 'rgba(108, 222, 232, 0.04)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(left, top, right - left, bottom - top);
-  ctx.restore();
+  // Scan line drifting down, barely there.
+  const scanY = top + ((time * 0.06) % 1) * height;
+  const scan = ctx.createLinearGradient(0, scanY - height * 0.12, 0, scanY + height * 0.12);
+  scan.addColorStop(0, 'rgba(160, 240, 250, 0)');
+  scan.addColorStop(0.5, 'rgba(160, 240, 250, 0.028)');
+  scan.addColorStop(1, 'rgba(160, 240, 250, 0)');
+  ctx.fillStyle = scan;
+  ctx.fillRect(left, top, width, height);
 
-  // Camera dot in the bezel.
-  ctx.fillStyle = 'rgba(120, 140, 152, 0.55)';
-  ctx.beginPath();
-  ctx.arc(0, top + lidHeight * 0.014 + 1.5, Math.max(1.4, lidW * 0.004), 0, Math.PI * 2);
-  ctx.fill();
+  // Glass reflection: a soft diagonal streak from the room.
+  const reflection = ctx.createLinearGradient(left, top, right * 0.8, bottom);
+  reflection.addColorStop(0, 'rgba(226, 245, 250, 0.07)');
+  reflection.addColorStop(0.3, 'rgba(226, 245, 250, 0.02)');
+  reflection.addColorStop(0.55, 'rgba(226, 245, 250, 0)');
+  reflection.addColorStop(1, 'rgba(108, 222, 232, 0.035)');
+  ctx.fillStyle = reflection;
+  ctx.fillRect(left, top, width, height);
 
-  // Emissive rim while the display is on.
-  ctx.strokeStyle = `rgba(130, 232, 244, ${0.28 + glow * 0.3})`;
+  // Vignette, so the copy keeps contrast at the corners.
+  const vignette = ctx.createRadialGradient(
+    left + width / 2,
+    top + height / 2,
+    Math.min(width, height) * 0.2,
+    left + width / 2,
+    top + height / 2,
+    Math.max(width, height) * 0.72,
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(2, 6, 9, 0.55)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(left, top, width, height);
+
+  // Display edge glow, strongest just after the copy lands.
+  ctx.strokeStyle = `rgba(128, 232, 244, ${0.16 + glow * 0.16})`;
   ctx.lineWidth = 1;
-  roundedPolygon(ctx, quad, lidW * 0.022);
+  roundedPolygon(ctx, quad, m.lidW * 0.014);
   ctx.stroke();
   ctx.restore();
 }
 
-function drawHingeBar(ctx: CanvasRenderingContext2D, hingeY: number, lidW: number, openMix: number) {
-  const half = lidW / 2;
-  const height = Math.max(2, lidW * 0.012);
-  const bar = ctx.createLinearGradient(0, hingeY - height, 0, hingeY + height);
-  bar.addColorStop(0, `rgba(${lerp(120, 88, openMix)}, ${lerp(131, 99, openMix)}, ${lerp(141, 109, openMix)}, 0.9)`);
-  bar.addColorStop(0.5, 'rgba(58, 68, 77, 0.95)');
+function drawBezel(
+  ctx: CanvasRenderingContext2D,
+  m: LaptopMetrics,
+  screen: Point[],
+  bottom: number,
+  bezel: number,
+  glow: number,
+  time: number,
+) {
+  // Camera dot in the top bezel, with a slow breathing ring.
+  const camY = screen[2][1] - bezel * 0.62;
+  const camR = Math.max(1.5, m.lidW * 0.0038);
+  ctx.fillStyle = 'rgba(16, 22, 27, 0.9)';
+  ctx.beginPath();
+  ctx.arc(0, camY, camR * 1.7, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = `rgba(132, 226, 240, ${0.35 + 0.25 * Math.sin(time * 1.1)})`;
+  ctx.beginPath();
+  ctx.arc(0, camY, camR, 0, TAU);
+  ctx.fill();
+
+  // Etched wordmark on the chin, matching the brand lockup.
+  const chinY = bottom - bezel * 1.05;
+  const fontSize = Math.max(5, m.lidW * 0.0125);
+  ctx.font = `600 ${fontSize}px Manrope, system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tracking = fontSize * 0.34;
+  const width = measureTracked(ctx, 'DEVZARD', tracking);
+  drawTracked(ctx, 'DEVZARD', -width / 2, chinY, tracking, 'rgba(198, 210, 220, 0.55)');
+  ctx.fillStyle = `rgba(108, 222, 232, ${0.5 + glow * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(width / 2 + fontSize * 0.2, chinY + 0.5, fontSize * 0.11, 0, TAU);
+  ctx.fill();
+}
+
+function drawHinge(ctx: CanvasRenderingContext2D, m: LaptopMetrics) {
+  const half = m.lidW / 2;
+  const height = Math.max(2, m.lidW * 0.011);
+  const bar = ctx.createLinearGradient(0, m.hingeY - height, 0, m.hingeY + height);
+  bar.addColorStop(0, 'rgba(126, 137, 147, 0.95)');
+  bar.addColorStop(0.45, 'rgba(62, 72, 81, 0.95)');
   bar.addColorStop(1, 'rgba(34, 41, 48, 0.9)');
   ctx.fillStyle = bar;
-  roundRectPath(ctx, -half * 0.82, hingeY - height * 0.6, half * 1.64, height * 1.2, height * 0.6);
+  roundRectPath(ctx, -half * 0.84, m.hingeY - height * 0.55, half * 1.68, height * 1.1, height * 0.55);
   ctx.fill();
+}
+
+/* ── dust ───────────────────────────────────────────────────────────────── */
+
+const DUST = Array.from({ length: 26 }, (_, index) => ({
+  x: hash(index * 1.7) * 2 - 1,
+  y: hash(index * 3.1 + 5),
+  r: 0.7 + hash(index * 5.3) * 1.5,
+  speed: 0.008 + hash(index * 7.7) * 0.016,
+  phase: hash(index * 11.3) * TAU,
+}));
+
+/** Motes drifting up through the light in front of the display. */
+function drawDust(
+  ctx: CanvasRenderingContext2D,
+  m: LaptopMetrics,
+  time: number,
+  width: number,
+  reveal: number,
+) {
+  if (reveal < 0.35) return;
+  const spanX = Math.min(width * 0.46, m.lidW * 0.62);
+  const topY = m.screenTop - m.lidH * 0.1;
+  const spanY = m.lidH + m.deckDepth * 0.9;
+  ctx.save();
+  for (const mote of DUST) {
+    const y = topY + (((mote.y + time * mote.speed) % 1) + 1) % 1 * spanY;
+    const x = mote.x * spanX * (0.75 + 0.25 * Math.sin(time * 0.4 + mote.phase));
+    const twinkle = 0.5 + 0.5 * Math.sin(time * 1.3 + mote.phase);
+    ctx.globalAlpha = (0.06 + twinkle * 0.16) * reveal;
+    ctx.fillStyle = '#a8eef7';
+    ctx.beginPath();
+    ctx.arc(x, y, mote.r, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /* ── geometry helpers ───────────────────────────────────────────────────── */

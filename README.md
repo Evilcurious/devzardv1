@@ -61,17 +61,17 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 - Dev: `npm run dev` (the API is mounted into Vite).
 - Prod: `npm run build` then `npm start` (Express serves `dist/` and the API; `/admin` refreshes return `index.html`).
 
-## Hero intro
+## Hero display
 
-`src/components/HeroStage.tsx` (art in `laptopScene.ts`) is the first thing on the homepage: a silver laptop that opens by itself.
+`src/components/HeroStage.tsx` (art in `laptopScene.ts`) is the first thing on the homepage: an open silver laptop with the hero copy on its display.
 
-- The page loads on a **closed** silver clamshell — brushed lid, front lip, hinge barrel, `DEVZARD` etched on it — and the intro plays once, on a clock rather than on scroll.
-- Over roughly **4.6 s** (`HERO_ANIMATION.durationMs`) the lid lifts, the display powers on, and the hero copy is thrown out of the screen in reading order: brand, headline, description, calls to action.
-- When it finishes the laptop **stays open** and the section stops changing. Nothing is pinned, there is no scroll listener, and scrolling the rest of the site leaves the hero untouched.
-- Beats are defined once in `HERO_ANIMATION` and read by both the canvas (`heroTimeline`) and the copy (`copyStrength`), so the light and the text cannot drift apart.
-- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`, `--hinge-y`). There are no duplicated measurements between canvas and CSS.
+- The machine is open from the first frame — silver body, aluminium deck with keys and trackpad, thin bezel, a deeper chin with `DEVZARD` etched into it, and a lit 16:10 display.
+- There is no open/close sequence, no pinning and no scroll listener. The hero is a normal block: it sits at the top of the page and scrolls away with the rest of the site.
+- The copy settles onto the glass over about **1.4 s** (`HERO_REVEAL.durationMs`), staggered in reading order — brand, headline, description, calls to action.
+- Idle motion after that is decorative and slow: a specular sweep across the metal every ~9 s, a light band crossing the glass, a drifting scan line, a breathing wallpaper bloom, dust motes in the display light, a softly pulsing status dot and CTA glow, and a few pixels of pointer parallax on the device (mouse only).
+- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`). There are no duplicated measurements between canvas and CSS.
 - Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it.
-- Reduced motion skips the animation and shows the finished state immediately.
+- The canvas loop pauses when the hero is off screen or the tab is hidden, and reduced motion shows the settled, static state with the CSS animations turned off.
 - Hidden copy lines are `visibility: hidden`, and the buttons only accept pointer input once visible, so nothing invisible can be focused or clicked.
 
 ## Scroll experience
@@ -110,7 +110,7 @@ Frames are preloaded before scroll-driven animation starts; until then the vecto
 
 ### Motion and accessibility
 
-- `prefers-reduced-motion: reduce` replaces the pinned story with a static, fully readable version: one still frame of the product plus the same four chapters as ordinary content. Hero parallax is also disabled.
+- `prefers-reduced-motion: reduce` replaces the pinned story with a static, fully readable version: one still frame of the product plus the same four chapters as ordinary content. The hero display falls back to a static, fully readable state with no ambient motion. The hero's small pointer parallax is disabled as well.
 - The hero gets a small, rAF-batched parallax on the product mockup (desktop only, max 46px) and a "scroll inside the build" cue that links to `#story`.
 - The pinned stage exposes a hidden `<h2>` and description for screen readers; the canvas itself is `aria-hidden`. Chapter buttons in the rail are real `<button>`s that scroll to their chapter.
 

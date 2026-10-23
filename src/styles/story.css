@@ -2,12 +2,6 @@
    Hero motion
    ───────────────────────────────────────────────────────────────────────── */
 
-.hero-parallax {
-  /* Only ever transformed by the hero scroll hook, so it cannot fight the
-     entrance animation that lives on .hero-product-wrap inside it. */
-  will-change: transform;
-}
-
 .hero-scroll-cue {
   position: relative;
   display: flex;
@@ -448,20 +442,20 @@
 @media (prefers-reduced-motion: reduce) {
   .hero-cue-line::after,
   .story-hint-line::after { animation: none; }
-  .hero-parallax { transform: none !important; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Hero intro
-   A silver laptop that opens by itself on load and throws the hero copy out
-   of its screen, then stays open. One shot, no scroll mapping, no pinning.
+   Hero display
+   An open silver laptop from the first frame, with the hero copy on its
+   screen. No open/close sequence, no pinning, no scroll mapping — only a
+   short copy reveal and a few idle effects around the machine.
    ───────────────────────────────────────────────────────────────────────── */
 
 .hero-intro {
   position: relative;
   height: 100svh;
-  min-height: 580px;
-  max-height: 1000px;
+  min-height: 620px;
+  max-height: 1020px;
   overflow: hidden;
   isolation: isolate;
 }
@@ -479,18 +473,34 @@
 .hero-intro-glow {
   position: absolute;
   left: 50%;
-  top: 52%;
-  width: min(80vw, 940px);
-  height: 58%;
+  top: 50%;
+  width: min(92vw, 1080px);
+  height: 74%;
   transform: translate(-50%, -50%);
   background:
-    radial-gradient(ellipse 50% 50% at 50% 60%, #23c7d90f, transparent 72%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, #6cdee807, transparent 72%);
+    radial-gradient(ellipse 52% 52% at 50% 46%, #23c7d912, transparent 72%),
+    radial-gradient(ellipse 62% 38% at 50% 96%, #6cdee809, transparent 72%);
   pointer-events: none;
   z-index: 0;
+  animation: hero-breathe 11s ease-in-out infinite;
 }
 
-/* Copy sits inside the drawn screen; the position comes from the same geometry
+/* A soft halo pinned to the display, so the glass reads as the light source. */
+.hero-screen-bloom {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: calc(var(--screen-top, 40px) + var(--lid-h, 440px) * 0.46);
+  width: calc(var(--lid-w, 760px) * 1.18);
+  height: calc(var(--lid-h, 440px) * 1.36);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, #35d0e518, transparent 68%);
+  filter: blur(34px);
+  pointer-events: none;
+  animation: hero-breathe 9s ease-in-out infinite reverse;
+}
+
+/* Copy sits on the drawn display; the position comes from the same geometry
    the canvas uses, published as CSS variables by the component. */
 .hero-copy--stage {
   position: absolute;
@@ -506,14 +516,14 @@
 .hero-copy--stage.is-interactive .hero-ctas { pointer-events: auto; }
 
 .hero-intro[data-layout="overlay"] .hero-copy--stage {
-  top: calc(var(--screen-top, 20%) + var(--lid-h, 400px) * 0.12);
-  left: calc(50% - var(--lid-w, 700px) * 0.41);
-  width: calc(var(--lid-w, 700px) * 0.82);
-  height: calc(var(--lid-h, 400px) * 0.72);
+  top: calc(var(--screen-top, 40px) + var(--lid-h, 440px) * 0.09);
+  left: calc(50% - var(--lid-w, 760px) * 0.395);
+  width: calc(var(--lid-w, 760px) * 0.79);
+  height: calc(var(--lid-h, 440px) * 0.79);
 }
 
 .hero-intro[data-layout="stacked"] .hero-copy--stage {
-  top: clamp(52px, 9vh, 96px);
+  top: clamp(46px, 8vh, 88px);
   left: clamp(22px, 6vw, 48px);
   right: clamp(22px, 6vw, 48px);
 }
@@ -521,8 +531,8 @@
 .hero-line {
   display: block;
   opacity: var(--o, 0);
-  transform: translate3d(0, var(--y, 24px), 0) scale(var(--s, 0.96));
-  filter: blur(var(--blur, 6px));
+  transform: translate3d(0, var(--y, 18px), 0) scale(var(--s, 0.98));
+  filter: blur(var(--blur, 5px));
   will-change: opacity, transform, filter;
 }
 
@@ -532,11 +542,12 @@
 
 .hero-copy--stage .hero-brand {
   display: inline-block;
-  font-size: calc(var(--lid-w, 700px) * 0.072);
+  font-size: max(30px, calc(var(--lid-w, 760px) * 0.066));
   line-height: 1.02;
   letter-spacing: -.055em;
   font-weight: 750;
-  color: #f4f6f7;
+  color: #f6f8f9;
+  text-shadow: 0 0 30px #6cdee826;
 }
 
 .hero-brand-text {
@@ -544,52 +555,68 @@
   clip-path: inset(0 calc((1 - var(--typed, 0)) * 100%) 0 0);
 }
 
-.hero-brand-dot { color: var(--accent); }
+.hero-brand-dot {
+  color: var(--accent);
+  animation: hero-dot 2.8s ease-in-out infinite;
+}
 
 .hero-copy--stage .hero-stage-headline {
   display: block;
-  margin-top: .18em;
-  font-size: calc(var(--lid-w, 700px) * 0.0445);
-  line-height: 1.14;
+  margin-top: .17em;
+  font-size: max(17px, calc(var(--lid-w, 760px) * 0.0385));
+  line-height: 1.16;
   letter-spacing: -.04em;
   font-weight: 600;
-  color: #f2f3f4;
+  color: #f1f3f4;
   text-wrap: balance;
 }
 
-.hero-stage-headline-accent { color: #a1a6ae; }
+.hero-stage-headline-accent {
+  background: linear-gradient(100deg, #98a0a9 0%, #cfd7dd 26%, #8fe9f2 44%, #98a0a9 62%, #98a0a9 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-shimmer 9s ease-in-out infinite;
+}
 
 .hero-copy--stage .hero-description {
   display: block;
-  margin: calc(var(--lid-w, 700px) * 0.024) auto 0;
-  max-width: 54ch;
-  font-size: calc(var(--lid-w, 700px) * 0.0205);
+  margin: calc(var(--lid-w, 760px) * 0.022) auto 0;
+  max-width: 52ch;
+  font-size: max(11px, calc(var(--lid-w, 760px) * 0.0185));
   line-height: 1.65;
-  color: #98a0a9;
+  color: #9aa2ab;
 }
 
 .hero-copy--stage .hero-ctas {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
-  margin-top: calc(var(--lid-w, 700px) * 0.028);
+  margin-top: calc(var(--lid-w, 760px) * 0.026);
 }
 
 .hero-copy--stage .button {
-  min-height: 38px;
-  font-size: calc(var(--lid-w, 700px) * 0.0175);
-  padding-inline: 16px;
+  min-height: 40px;
+  font-size: max(11px, calc(var(--lid-w, 760px) * 0.0152));
+  padding-inline: 17px;
+  gap: 16px;
 }
 
-.hero-copy--stage .button-quiet { border-color: transparent; color: #c8ccd1; }
-.hero-copy--stage .button-quiet:hover { border-color: #ffffff18; }
+.hero-copy--stage .button-primary {
+  animation: hero-cta-glow 4.6s ease-in-out infinite;
+}
 
-/* The cue only appears once the intro has settled, so it never invites a
-   scroll that would cut the animation short. */
+.hero-copy--stage .button:hover { transform: translateY(-1px); }
+
+.hero-copy--stage .button-quiet { border-color: #ffffff14; color: #c8ccd1; }
+.hero-copy--stage .button-quiet:hover { border-color: #ffffff2b; background: #ffffff05; }
+
+/* The cue fades in once the copy has settled. */
 .hero-intro .hero-scroll-cue {
   position: absolute;
   left: 50%;
-  bottom: 22px;
+  bottom: 20px;
   transform: translateX(-50%);
   margin: 0;
   z-index: 3;
@@ -601,14 +628,14 @@
 .hero-intro[data-finished="true"] .hero-scroll-cue { opacity: 1; }
 .hero-intro[data-finished="false"] .hero-scroll-cue { transition: none; }
 
-/* Narrow stages: the laptop drops beneath the copy, so the copy gets the whole
-   top of the stage and its own type scale. */
+/* Narrow stages: the laptop drops beneath the copy, which gets the whole top
+   of the stage and its own type scale. */
 .hero-intro[data-layout="stacked"] .hero-copy--stage .hero-brand {
-  font-size: clamp(44px, 12.5vw, 80px);
+  font-size: clamp(42px, 12vw, 76px);
 }
 
 .hero-intro[data-layout="stacked"] .hero-copy--stage .hero-stage-headline {
-  font-size: clamp(20px, 5.4vw, 34px);
+  font-size: clamp(19px, 5.2vw, 33px);
   letter-spacing: -.045em;
   text-wrap: balance;
 }
@@ -624,14 +651,45 @@
 .hero-intro[data-layout="stacked"] .hero-copy--stage .button {
   min-height: 42px;
   font-size: 12px;
+  gap: 18px;
 }
 
+@keyframes hero-breathe {
+  0%, 100% { opacity: .72; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.035); }
+}
+
+@keyframes hero-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes hero-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
+@keyframes hero-cta-glow {
+  0%, 100% { box-shadow: 0 0 0 1px #ffffff0c inset, 0 8px 24px -14px #6cdee86b; }
+  50% { box-shadow: 0 0 0 1px #ffffff1a inset, 0 10px 30px -10px #6cdee8a6; }
+}
+
+/* Stacked stages keep the machine at the bottom of the section, so the cue is
+   dropped rather than laid over the deck. */
+.hero-intro[data-layout="stacked"] .hero-scroll-cue { display: none; }
+
 @media (max-width: 520px) {
-  .hero-intro .hero-scroll-cue { font-size: 8px; bottom: 14px; }
+  .hero-intro .hero-scroll-cue { font-size: 8px; bottom: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-line { transition: none; }
+  .hero-intro-glow,
+  .hero-screen-bloom,
+  .hero-brand-dot,
+  .hero-stage-headline-accent,
+  .hero-copy--stage .button-primary { animation: none; }
+  .hero-stage-headline-accent { background: none; color: #a1a6ae; -webkit-text-fill-color: currentColor; }
 }
 
 /* Workspace preview band, directly under the hero. */
