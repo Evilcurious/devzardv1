@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContent } from '../cms/context';
 import { SiteLink } from '../lib/navigation';
 import { Icon } from './ui';
-import { drawLaptopScene, laptopMetrics } from './laptopScene';
+import { copyStrength, drawLaptopScene, laptopMetrics } from './laptopScene';
 
 /**
  * Hero: a closed laptop that opens as you scroll and hands you the hero copy,
@@ -16,18 +16,8 @@ import { drawLaptopScene, laptopMetrics } from './laptopScene';
 
 const clamp01 = (value: number) => (value < 0 ? 0 : value > 1 ? 1 : value);
 
-/** When each copy line arrives, and where it leaves. */
-const LINES = {
-  brand: { start: 0.11, end: 0.21 },
-  headline: { start: 0.23, end: 0.33 },
-  description: { start: 0.28, end: 0.38 },
-  actions: { start: 0.33, end: 0.43 },
-} as const;
-
-const EXIT_START = 0.66;
-const EXIT_END = 0.82;
-
-type LineKey = keyof typeof LINES;
+type LineKey = 'brand' | 'headline' | 'description' | 'actions';
+const LINE_KEYS: LineKey[] = ['brand', 'headline', 'description', 'actions'];
 
 function useMedia(query: string, initial = false) {
   const [matches, setMatches] = useState(initial);
@@ -90,14 +80,12 @@ export function HeroScrollStage() {
     const section = sectionRef.current;
     if (section) section.style.setProperty('--hero-progress', progress.toFixed(4));
 
-    const exit = 1 - clamp01((progress - EXIT_START) / (EXIT_END - EXIT_START));
     let actionsVisible = 0;
 
-    (Object.keys(LINES) as LineKey[]).forEach(key => {
-      const { start, end } = LINES[key];
+    LINE_KEYS.forEach(key => {
       const element = lineRefs.current[key];
       if (!element) return;
-      const strength = clamp01((progress - start) / (end - start)) * exit;
+      const strength = copyStrength(key, progress);
       element.style.setProperty('--o', strength.toFixed(3));
       element.style.setProperty('--y', `${((1 - strength) * 12).toFixed(2)}px`);
       element.classList.toggle('is-hidden', strength < 0.012);
