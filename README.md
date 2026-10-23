@@ -65,12 +65,14 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 
 `src/components/HeroStage.tsx` (art in `laptopScene.ts`) is the first thing on the homepage: an open silver laptop with the hero copy on its display.
 
-- The machine is open from the first frame — silver body, aluminium deck with keys and trackpad, thin bezel, a deeper chin with `DEVZARD` etched into it, and a lit 16:10 display.
+- The machine is open from the first frame — silver body, aluminium deck with a full keyboard (lettered keycaps and `DEVZARD` etched on the space bar), trackpad, thin bezel, a deeper chin with the wordmark, and a lit display.
 - There is no open/close sequence, no pinning and no scroll listener. The hero is a normal block: it sits at the top of the page and scrolls away with the rest of the site.
 - The copy settles onto the glass over about **1.4 s** (`HERO_REVEAL.durationMs`), staggered in reading order — brand, headline, description, calls to action.
 - Idle motion after that is decorative and slow: a specular sweep across the metal every ~9 s, a light band crossing the glass, a drifting scan line, a breathing wallpaper bloom, dust motes in the display light, a softly pulsing status dot and CTA glow, and a few pixels of pointer parallax on the device (mouse only).
 - Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`). There are no duplicated measurements between canvas and CSS.
-- Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it.
+- The section is exactly the first screen below the header (`calc(100svh - header)`), and the device is sized from that box, so the whole machine is visible without scrolling. A sliver of the base runs past the bottom edge and is masked out, so the device fills the frame instead of ending on a hard line.
+- Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it, sized from the height left over so the two never overlap.
+- A reload always starts at the hero: `scrollRestoration` is set to `manual` and any `#hash` left in the URL by an earlier in-page click is dropped at boot. In-app hash links (Contact, Start a Project) still scroll as before.
 - The canvas loop pauses when the hero is off screen or the tab is hidden, and reduced motion shows the settled, static state with the CSS animations turned off.
 - Hidden copy lines are `visibility: hidden`, and the buttons only accept pointer input once visible, so nothing invisible can be focused or clicked.
 

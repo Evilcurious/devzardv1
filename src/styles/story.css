@@ -2,49 +2,6 @@
    Hero motion
    ───────────────────────────────────────────────────────────────────────── */
 
-.hero-scroll-cue {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 11px;
-  margin-top: 15px;
-  padding-bottom: 4px;
-  font: 9px var(--mono);
-  letter-spacing: 2.1px;
-  text-transform: uppercase;
-  color: #6f7782;
-  transition: color .25s;
-}
-
-.hero-scroll-cue:hover { color: #c9d2d8; }
-.hero-scroll-cue:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
-
-.hero-cue-line {
-  width: 46px;
-  height: 1px;
-  position: relative;
-  overflow: hidden;
-  background: #ffffff1a;
-}
-
-.hero-cue-line::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  transform: translateX(-100%);
-  animation: cue-sweep 3.4s cubic-bezier(.4, 0, .2, 1) infinite;
-}
-
-.hero-scroll-cue svg { transition: transform .25s; }
-.hero-scroll-cue:hover svg { transform: translateY(2px); }
-
-@keyframes cue-sweep {
-  0% { transform: translateX(-100%); }
-  55%, 100% { transform: translateX(100%); }
-}
-
 /* ─────────────────────────────────────────────────────────────────────────
    Scroll experience
    ───────────────────────────────────────────────────────────────────────── */
@@ -440,7 +397,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-cue-line::after,
   .story-hint-line::after { animation: none; }
 }
 
@@ -453,8 +409,11 @@
 
 .hero-intro {
   position: relative;
-  height: 100svh;
-  min-height: 620px;
+  /* The header is in flow above the hero, so the hero is exactly the rest of
+     the first screen: the whole machine is visible without scrolling and no
+     part of the deck is hidden below the fold. */
+  height: calc(100svh - 81px);
+  min-height: 560px;
   max-height: 1020px;
   overflow: hidden;
   isolation: isolate;
@@ -468,6 +427,16 @@
   display: block;
   pointer-events: none;
   z-index: 1;
+  /* The base runs a little past the stage so the device fills the screen; the
+     mask lets it fall away instead of ending on a hard line. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+}
+
+/* Stacked stages keep the whole base inside the section, so no fade there. */
+.hero-intro[data-layout="stacked"] .hero-canvas {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .hero-intro-glow {
@@ -612,22 +581,6 @@
 .hero-copy--stage .button-quiet { border-color: #ffffff14; color: #c8ccd1; }
 .hero-copy--stage .button-quiet:hover { border-color: #ffffff2b; background: #ffffff05; }
 
-/* The cue fades in once the copy has settled. */
-.hero-intro .hero-scroll-cue {
-  position: absolute;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
-  margin: 0;
-  z-index: 3;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .8s ease .2s;
-}
-
-.hero-intro[data-finished="true"] .hero-scroll-cue { opacity: 1; }
-.hero-intro[data-finished="false"] .hero-scroll-cue { transition: none; }
-
 /* Narrow stages: the laptop drops beneath the copy, which gets the whole top
    of the stage and its own type scale. */
 .hero-intro[data-layout="stacked"] .hero-copy--stage .hero-brand {
@@ -674,14 +627,6 @@
   50% { box-shadow: 0 0 0 1px #ffffff1a inset, 0 10px 30px -10px #6cdee8a6; }
 }
 
-/* Stacked stages keep the machine at the bottom of the section, so the cue is
-   dropped rather than laid over the deck. */
-.hero-intro[data-layout="stacked"] .hero-scroll-cue { display: none; }
-
-@media (max-width: 520px) {
-  .hero-intro .hero-scroll-cue { font-size: 8px; bottom: 12px; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .hero-line { transition: none; }
   .hero-intro-glow,
@@ -690,6 +635,14 @@
   .hero-stage-headline-accent,
   .hero-copy--stage .button-primary { animation: none; }
   .hero-stage-headline-accent { background: none; color: #a1a6ae; -webkit-text-fill-color: currentColor; }
+}
+
+@media (max-width: 900px) {
+  .hero-intro { height: calc(100svh - 74px); }
+}
+
+@media (max-width: 760px) {
+  .hero-intro { height: calc(100svh - 69px); min-height: 520px; }
 }
 
 /* Workspace preview band, directly under the hero. */

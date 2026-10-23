@@ -287,12 +287,6 @@ export function HeroStage() {
           </span>
         </span>
       </div>
-
-      <p className="hero-scroll-cue" aria-hidden="true">
-        <span className="hero-cue-line" />
-        Scroll to explore
-        <Icon name="arrow-down" size={13} />
-      </p>
     </section>
   );
 }
