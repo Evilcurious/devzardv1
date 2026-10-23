@@ -365,7 +365,7 @@
 
 @media (max-width: 1359px) {
   .story { height: 340vh; }
-  .story-canvas { top: 96px; left: 0; right: 0; bottom: 240px; }
+  .story-canvas { top: 96px; left: 0; right: 0; bottom: 252px; }
   .story-caption--left,
   .story-caption--right {
     left: 0;

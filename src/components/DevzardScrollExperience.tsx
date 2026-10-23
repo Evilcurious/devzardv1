@@ -335,7 +335,7 @@ export function DevzardScrollExperience() {
       <div className="story-stage" ref={stageRef}>
         <div className="story-glow" aria-hidden="true" />
         <canvas ref={canvasRef} className="story-canvas" aria-hidden="true" />
-        <h2 className="sr-only" id="story-heading">From idea to production.</h2>
+        <h2 className="sr-only" id="story-heading">Inside the build</h2>
         <p className="sr-only">
           Devzard build story: as you scroll, the product separates into its interface, frame, circuit board,
           processing core and chassis, then reassembles.
