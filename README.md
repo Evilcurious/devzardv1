@@ -61,16 +61,18 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 - Dev: `npm run dev` (the API is mounted into Vite).
 - Prod: `npm run build` then `npm start` (Express serves `dist/` and the API; `/admin` refreshes return `index.html`).
 
-## Hero scroll experience
+## Hero intro
 
-`src/components/HeroStage.tsx` (art in `laptopScene.ts`) replaces the static hero with a scroll-driven one. The section is a tall track with a sticky stage inside it; progress through the track drives a single canvas frame and four copy lines.
+`src/components/HeroStage.tsx` (art in `laptopScene.ts`) is the first thing on the homepage: a silver laptop that opens by itself.
 
-- A closed laptop sits centred on arrival, wordmark etched on the lid. As you scroll the lid swings open and the hero copy — brand, headline, description, calls to action — is handed out in sequence, revealed inside the lit screen. Scrolling on pulls the copy back in and closes the lid, handing off to the workspace preview and then the build story below.
-- The lid is a quad projected from a simple 3D model (`free edge y = hinge + depth·cos θ − height·sin θ`), so the clamshell motion is real rather than a scale animation.
-- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`, `--hinge-y`) by the component. There are no duplicated measurements between canvas and CSS.
+- The page loads on a **closed** silver clamshell — brushed lid, front lip, hinge barrel, `DEVZARD` etched on it — and the intro plays once, on a clock rather than on scroll.
+- Over roughly **4.6 s** (`HERO_ANIMATION.durationMs`) the lid lifts, the display powers on, and the hero copy is thrown out of the screen in reading order: brand, headline, description, calls to action.
+- When it finishes the laptop **stays open** and the section stops changing. Nothing is pinned, there is no scroll listener, and scrolling the rest of the site leaves the hero untouched.
+- Beats are defined once in `HERO_ANIMATION` and read by both the canvas (`heroTimeline`) and the copy (`copyStrength`), so the light and the text cannot drift apart.
+- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`, `--hinge-y`). There are no duplicated measurements between canvas and CSS.
 - Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it.
-- Reduced motion, or a viewport shorter than 560px, renders a static open laptop beside the same copy with no scroll mapping. Hidden copy lines are `visibility: hidden`, so nothing invisible can be focused or clicked.
-- A "Skip to the build story" link keeps the pinned track from trapping keyboard or small-screen users.
+- Reduced motion skips the animation and shows the finished state immediately.
+- Hidden copy lines are `visibility: hidden`, and the buttons only accept pointer input once visible, so nothing invisible can be focused or clicked.
 
 ## Scroll experience
 
