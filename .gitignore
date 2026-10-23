@@ -54,5 +54,6 @@ desktop.ini
 # Vercel
 
 .vercel/
+api/index.js
 
 .vercel

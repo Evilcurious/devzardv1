@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, open, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Response } from 'express';
 import { del, put } from '@vercel/blob';
 import { BLOB_READ_WRITE_TOKEN, hasBlob } from './env';
@@ -10,7 +9,9 @@ import { getStorage } from './storage/index';
 import type { MediaRecord } from './storage/types';
 
 export const MAX_UPLOAD = 2 * 1024 * 1024;
-const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'uploads');
+// Anchored to the working directory (the repo root) so the deploy bundle in
+// api/ resolves to the same place as the sources in server/.
+const uploadsDir = path.join(process.cwd(), 'server', 'data', 'uploads');
 
 const IMAGE_TYPES: Record<string, { magic: number[]; ext: string }> = {
   'image/jpeg': { magic: [0xff, 0xd8, 0xff], ext: 'jpg' },

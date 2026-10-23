@@ -1,9 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const secretFile = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'session-secret');
+const secretFile = path.join(process.cwd(), 'server', 'data', 'session-secret');
 
 let cached = '';
 

@@ -1,6 +1,5 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -289,7 +288,7 @@ export function createApp(options: { serveStatic?: boolean } = {}) {
   app.use('/api', (_req, res) => fail(res, 404, 'Not found.'));
 
   if (options.serveStatic) {
-    const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+    const dist = path.join(process.cwd(), 'dist');
     app.use(express.static(dist, { index: false }));
     app.use((req, res, next) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
