@@ -101,20 +101,32 @@ Frames are preloaded before scroll-driven animation starts; until then the vecto
 
 ## Deploy
 
-The website is deployed on Vercel as a static Vite build (project `devzardv1`).
+The website and its admin API are deployed on Vercel (project `devzardv1`).
 
-- Production URL: https://devzardv1.vercel.app
+- Production URL: https://devzardv1.vercel.app — admin at `/admin`
 - `vercel.json` pins the framework preset, `npm ci` / `npm run build`, and the `dist` output directory. It also adds an SPA rewrite, so deep links such as `/privacy`, `/work/deephq`, and `/admin` resolve to `index.html` instead of 404ing, plus baseline security headers and long-lived caching for `/images/*`.
-- The build is a static bundle: `vite-plugin-singlefile` inlines the JS and CSS into `index.html`, and everything in `public/` is copied to the output root.
-- Public content falls back to `src/cms/seed.ts` in the browser when the API is unreachable, so the marketing site renders in full without a backend.
+- The front end is a static bundle: `vite-plugin-singlefile` inlines the JS and CSS into `index.html`, and everything in `public/` is copied to the output root.
+- The API runs as one Node function, `api/[...path].ts`, which mounts the Express app from `server/app.ts` for every `/api/*` request. It initialises storage, seeds the first admin, and resolves the session secret once per warm instance.
+- Content, sessions, the audit log and media metadata live in Neon PostgreSQL (`DATABASE_URL`, connected through the Vercel Neon integration).
 
-This configuration deploys the public website only. The Express API in `server/` needs a Node runtime, which a static Vite deployment does not provide:
+### Environment variables
 
-1. Add a serverless entry that exports the handler in `src/api/index.ts` (for example `api/[...path].ts`).
-2. Set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `SESSION_SECRET` (32+ characters) in the Vercel project.
-3. Deploy again.
+Set on the Vercel project for both Production and Preview:
 
-Until then `/api/*` returns 404, `/admin` shows its sign-in gate but cannot authenticate, and the site serves the seed content. `npm start` locally keeps the full behaviour.
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Neon connection string, supplied by the Neon integration |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeds the first admin on the first request if none exists |
+| `SESSION_SECRET` | 32+ characters; signs and ages admin sessions |
+| `BLOB_READ_WRITE_TOKEN` | Optional. Needed for image uploads; without it uploads fail on a read-only serverless filesystem |
+
+`ADMIN_PASSWORD` must be at least 12 characters. Both admin variables are read server-side only and the password is stored as a bcrypt hash — never in source, never returned by an API.
+
+`POST /api/admin/setup` creates the admin when none exists. With `ADMIN_EMAIL` / `ADMIN_PASSWORD` set, the seed runs on the first request and closes that path; do not deploy the API without them.
+
+Uploads are the one feature that needs `BLOB_READ_WRITE_TOKEN`. Everything else — signing in, editing content, reviewing the audit log — works without it.
+
+`npm start` still runs the whole app locally on one port (Express serving `dist/` plus the API).
 
 Note that `SITE_URL` in `src/data/site.ts`, the canonical and Open Graph tags in `index.html`, and `public/sitemap.xml` / `public/robots.txt` still reference `https://devzard.com`. Update them to the production domain before promoting the site for search.
 
