@@ -87742,7 +87742,7 @@ function describe3(error62) {
     message: value?.message ?? String(error62),
     code: value?.code,
     cause: cause ? { message: cause.message, code: cause.code } : void 0,
-    stack: value?.stack?.split("\n").slice(0, 6)
+    stack: process.env.NODE_ENV === "production" ? void 0 : value?.stack?.split("\n").slice(0, 6)
   };
 }
 async function handler(req, res) {

@@ -42,7 +42,8 @@ function describe(error: unknown) {
     message: value?.message ?? String(error),
     code: value?.code,
     cause: cause ? { message: cause.message, code: cause.code } : undefined,
-    stack: value?.stack?.split('\n').slice(0, 6),
+    stack:
+      process.env.NODE_ENV === 'production' ? undefined : value?.stack?.split('\n').slice(0, 6),
   };
 }
 

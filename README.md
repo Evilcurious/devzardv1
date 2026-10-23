@@ -106,7 +106,8 @@ The website and its admin API are deployed on Vercel (project `devzardv1`).
 - Production URL: https://devzardv1.vercel.app — admin at `/admin`
 - `vercel.json` pins the framework preset, `npm ci` / `npm run build`, and the `dist` output directory. It also adds an SPA rewrite, so deep links such as `/privacy`, `/work/deephq`, and `/admin` resolve to `index.html` instead of 404ing, plus baseline security headers and long-lived caching for `/images/*`.
 - The front end is a static bundle: `vite-plugin-singlefile` inlines the JS and CSS into `index.html`, and everything in `public/` is copied to the output root.
-- The API runs as one Node function, `api/[...path].ts`, which mounts the Express app from `server/app.ts` for every `/api/*` request. It initialises storage, seeds the first admin, and resolves the session secret once per warm instance.
+- The API runs as one Node function, `api/index.js`. `vercel.json` rewrites `/api/*` to it while keeping the original URL, so the Express app from `server/app.ts` sees the same paths it handles in development. It initialises storage, seeds the first admin, and resolves the session secret once per warm instance.
+- `api/index.js` is generated: `server/entry.ts` is bundled with esbuild by `scripts/build-api.mjs`, because Vercel's Node runtime executes the entry as native ESM and does not transpile the TypeScript modules it imports. Vercel only creates functions for files that exist in the commit, so the bundle is committed. Run `npm run build:api` after changing anything under `server/` — `npm run build` does it for you.
 - Content, sessions, the audit log and media metadata live in Neon PostgreSQL (`DATABASE_URL`, connected through the Vercel Neon integration).
 
 ### Environment variables
