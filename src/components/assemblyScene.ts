@@ -130,17 +130,20 @@ export interface AssemblyMetrics {
   deckDepth: number;
   screenTop: number;
   hingeY: number;
+  /** Half the width of the whole drawing, at the same explode value. */
+  halfWidth: number;
 }
 
-export function assemblyMetrics(width: number, height: number): AssemblyMetrics {
-  const l = layout(0);
-  const f = frameFor(width, height, l, 0);
+export function assemblyMetrics(width: number, height: number, explode = 0): AssemblyMetrics {
+  const l = layout(clamp01(explode));
+  const f = frameFor(width, height, l, explode);
   return {
     lidW: UNITS.lidW * f.fit,
     lidH: l.lidHeight * f.fit,
     deckDepth: l.deckDepth * f.fit,
     screenTop: f.offsetY + l.lidTop * f.fit,
     hingeY: f.offsetY,
+    halfWidth: ((l.bounds.right - l.bounds.left) / 2) * f.fit,
   };
 }
 

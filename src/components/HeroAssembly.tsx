@@ -233,7 +233,14 @@ export function HeroAssembly() {
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
 
       stage.dataset.layout = stageRect.width < 860 || stageRect.height < 440 ? 'stacked' : 'overlay';
-      stage.dataset.chapters = stageRect.width >= 1240 ? 'sides' : 'bottom';
+
+      // Side columns only when the machine, at its widest during the beats,
+      // still leaves a readable column on each side.
+      const wide = assemblyMetrics(current.width, current.height, 0.62);
+      const inset = Math.min(104, Math.max(24, stageRect.width * 0.06));
+      const sideSpace = stageRect.width / 2 - wide.halfWidth - inset;
+      stage.dataset.chapters = sideSpace >= 280 ? 'sides' : 'bottom';
+      stage.style.setProperty('--art-half', `${Math.round(wide.halfWidth)}px`);
 
       const metrics = assemblyMetrics(current.width, current.height);
       const top = rect.top - stageRect.top;

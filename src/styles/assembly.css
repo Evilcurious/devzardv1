@@ -249,6 +249,12 @@
 
 .assembly-chapter--right .assembly-chapter-inner { margin-left: auto; }
 
+/* The columns never run into the machine: the width comes from the drawing's
+   own half-width, published by the component. */
+.assembly-stage[data-chapters="sides"] .assembly-chapter-inner {
+  max-width: min(336px, calc(50vw - var(--art-half, 264px) - clamp(24px, 6vw, 104px) - 18px));
+}
+
 /* Not enough width for side columns: all beats centre at the bottom. */
 .assembly-stage[data-chapters="bottom"] .assembly-chapter--left,
 .assembly-stage[data-chapters="bottom"] .assembly-chapter--right {
