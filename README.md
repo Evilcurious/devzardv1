@@ -58,6 +58,25 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 - Dev: `npm run dev` (the API is mounted into Vite).
 - Prod: `npm run build` then `npm start` (Express serves `dist/` and the API; `/admin` refreshes return `index.html`).
 
+## Deploy
+
+The website is deployed on Vercel as a static Vite build (project `devzardv1`).
+
+- Production URL: https://devzardv1.vercel.app
+- `vercel.json` pins the framework preset, `npm ci` / `npm run build`, and the `dist` output directory. It also adds an SPA rewrite, so deep links such as `/privacy`, `/work/deephq`, and `/admin` resolve to `index.html` instead of 404ing, plus baseline security headers and long-lived caching for `/images/*`.
+- The build is a static bundle: `vite-plugin-singlefile` inlines the JS and CSS into `index.html`, and everything in `public/` is copied to the output root.
+- Public content falls back to `src/cms/seed.ts` in the browser when the API is unreachable, so the marketing site renders in full without a backend.
+
+This configuration deploys the public website only. The Express API in `server/` needs a Node runtime, which a static Vite deployment does not provide:
+
+1. Add a serverless entry that exports the handler in `src/api/index.ts` (for example `api/[...path].ts`).
+2. Set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `SESSION_SECRET` (32+ characters) in the Vercel project.
+3. Deploy again.
+
+Until then `/api/*` returns 404, `/admin` shows its sign-in gate but cannot authenticate, and the site serves the seed content. `npm start` locally keeps the full behaviour.
+
+Note that `SITE_URL` in `src/data/site.ts`, the canonical and Open Graph tags in `index.html`, and `public/sitemap.xml` / `public/robots.txt` still reference `https://devzard.com`. Update them to the production domain before promoting the site for search.
+
 ## Admin security
 
 Visit `/admin`. The public site and admin UI are separate routes. Admin mutations go through `/api/admin/*` and are rejected without a server session.
