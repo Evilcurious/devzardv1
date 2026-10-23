@@ -18,8 +18,8 @@ A responsive, original software agency website built with React, TypeScript, Vit
 
 - `src/App.tsx`: application entry point, page routing, and inquiry handoff state.
 - `src/components/`: modular homepage sections, shared UI, and interactive workspace.
-- `src/components/DevzardScrollExperience.tsx`: hero scroll story (pinned canvas, chapters, chapter rail).
-- `src/components/deviceScene.ts`: the device artwork, drawn as vector layers on the canvas.
+- `src/components/HeroPixel.tsx`: the homepage hero — copy, chapters, stage readout, progress rail.
+- `src/components/pixelScene.ts`: the pixel-art artwork and the layout/camera maths for it.
 - `src/pages/`: Alwazir case study, resource pages, and not-found page.
 - `src/data/site.ts`: deployment settings, services, projects, process, FAQs, and illustrative dashboard data.
 - `src/lib/`: navigation, downloads, and page metadata.
@@ -63,61 +63,18 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 
 ## Hero display
 
-`src/components/HeroAssembly.tsx` (art in `assemblyScene.ts`) is the first thing on the homepage: a display panel on a dark studio sweep, with the hero copy on the glass.
+`src/components/HeroPixel.tsx` (art in `pixelScene.ts`) is the first thing on the homepage: a pixel-art display that comes apart as you scroll.
 
-- **The device is a panel, not a laptop.** No keyboard, no deck — just the bezel, the glass and the chin with the wordmark. That leaves the whole stage to the screen, so the panel runs the full width of the column (about 960 px on a 1366 px stage).
-- **First frame.** Assembled panel, loosely stacked internals hidden behind it, hero copy on the glass.
-- **Copy motion.** The copy arrives from the right on load, then the lines on the glass rotate: every **5 s** the current slide pushes out to the left while the next one comes in from the right (`assembly-slide-in` / `assembly-slide-out`, 640 ms). Four slides, marked by the small bars under the calls to action. The rotation pauses while the tab is hidden, while the stage is off screen, and once the copy has left the glass; reduced motion shows a single slide with no animation.
-- **On scroll.** The section is a tall track (`300vh`, `270vh` on phones) with a sticky, viewport-sized stage inside it. Progress drives one value, `explodeAt(progress)`: the hero copy leaves by ~9%, the internals slide out from behind the glass into a centre-aligned stack (backlight sheet → control board → power board → back cover) by ~46%, hold to ~62%, and close again by ~94%. The camera pulls back as it opens so no part ever clips.
-- **Beats.** `BEATS` (at 30% and 60%) and `FINAL` (at 90%) hold the copy. The beats sit in the left and right margins when the drawing leaves a readable column on each side, otherwise they centre under the panel with a scrim; stacked stages put them in the top band. The closing line lands back on the glass once the panel is reassembled.
-- Scroll work is batched into one `requestAnimationFrame` per frame. The canvas, copy, beats and rail are written to directly (`style.setProperty` / `classList`), never through React state. The slideshow is the one exception: it advances on a timer.
-- The scene is vector art in one design space, fitted by its own bounds, so it stays sharp at every size and needs no downloads. The canvas is transparent and the stage background is the page background, so no frame edges show.
-- Geometry is published from the canvas box to CSS (`--lid-w`, `--lid-h`, `--screen-top`, `--art-half`), so the copy is placed from the same numbers that draw the panel.
-- Narrow stages switch to `data-layout="stacked"`: the copy takes the top band and the panel sits underneath it.
-- The canvas fades in on its first painted frame (`.is-ready`); the ambient tick (dust, pointer parallax) pauses when the stage is off screen or the tab is hidden. Reduced motion renders one still frame and turns the three beats into ordinary sections below it.
-- A reload always starts at the hero: `scrollRestoration` is set to `manual` and any `#hash` left in the URL by an earlier in-page click is dropped at boot. In-app hash links (Contact, Start a Project) still scroll as before.
-
-The previous hero (`HeroStage.tsx` / `laptopScene.ts`) is kept in the tree but is no longer mounted.
-
-## Scroll experience
-
-`src/components/DevzardScrollExperience.tsx` renders the homepage section directly below the hero (`#story`).
-
-- The section is a tall track (`380vh` desktop, shorter on mobile). A sticky, viewport-sized stage is pinned inside it, and a single passive `scroll` listener maps the track's progress to a canvas frame.
-- Scroll work is batched into one `requestAnimationFrame` per frame. Captions, the chapter rail, and the canvas are written to directly (`style.setProperty` / `classList`), never through React state, so scrolling does not re-render or repaint more than once per frame.
-- The device artwork lives in `deviceScene.ts` and is drawn as vector layers, so it stays sharp at every size and needs no network requests. The canvas keeps a transparent background, is centred in the stage, and frames the artwork by its own bounds, so it blends into the page section without edges.
-- The framing is deliberate: the scene fits the *separated* stack and then eases the camera closer as the layers close, so the assembled device reads large without ever clipping when it opens. The zoom is clamped against the plate size, which keeps the same framing on phones.
-- `.story-canvas` needs an explicit `width`/`height`. A `<canvas>` is a replaced element with an intrinsic 300×150 box, so positioning it with `inset` alone leaves it tiny in the corner.
-- Chapters are defined in one place: the `CHAPTERS` array (scroll position, alignment, title, copy, optional CTA). The first chapter is clamped on at the top of the track and the last at the end, so the opening and closing lines stay readable instead of fading into the section edges.
-
-### Using a pre-rendered image sequence instead
-
-The scene also supports a raster sequence. To swap it in:
-
-1. Render zero-padded frames (WebP or AVIF) at a consistent size and framing, e.g. `frame_0001.webp`, `frame_0002.webp`, … Put them in `public/images/devzard-sequence/`.
-2. Edit `SEQUENCE` at the top of `DevzardScrollExperience.tsx`:
-
-   ```ts
-   export const SEQUENCE = {
-     enabled: true,
-     directory: '/images/devzard-sequence',
-     pattern: 'frame_',
-     extension: 'webp',
-     pad: 4,
-     frames: 60,                       // number of frames you actually added
-     fallbackImage: '/images/devzard-social.jpg',
-   } as const;
-   ```
-
-3. Keep `pad` equal to the number of digits in the filenames. `frames` is the only place the frame count lives — nothing else assumes a length.
-
-Frames are preloaded before scroll-driven animation starts; until then the vector scene keeps rendering, so the section never shows an empty box, and a failed sequence falls back automatically. Each frame is drawn `contain`-style at the available aspect ratio, so mixed sizes do not crop.
-
-### Motion and accessibility
-
-- `prefers-reduced-motion: reduce` replaces the pinned story with a static, fully readable version: one still frame of the product plus the same four chapters as ordinary content. The hero display falls back to a static, fully readable state with no ambient motion. The hero's small pointer parallax is disabled as well.
-- The hero gets a small, rAF-batched parallax on the product mockup (desktop only, max 46px) and a "scroll inside the build" cue that links to `#story`.
-- The pinned stage exposes a hidden `<h2>` and description for screen readers; the canvas itself is `aria-hidden`. Chapter buttons in the rail are real `<button>`s that scroll to their chapter.
+- **Style.** Everything on the canvas is pixel art on an integer grid — no image assets, no anti-aliased curves. The scene lives in a small design space (the panel is 104 × 62 units) and a camera fits it to the canvas, so one set of numbers works from a phone to a 4K monitor. Type inside the artwork is drawn with a 5 × 7 bitmap font defined in `pixelScene.ts`; it is skipped automatically when a font pixel would be smaller than 1.4 device pixels.
+- **First frame.** The assembled monitor beside the site's hero copy: brand, headline, description, both calls to action. The screen shows a small piece of software — service rows, a bar chart, uptime and latency readouts, a build bar.
+- **On scroll.** The section is a tall track (`320vh`) with a sticky, viewport-sized stage inside it. One value, `explodeAt(progress)`, opens the machine between 8% and 38%, holds it open through the three chapters, and closes it again between 66% and 92% so the closing line lands on an assembled device. Parts come off in order: front glass → diffuser sheet → control board → power board → chassis, with the stand leaving the desk last. They all move on the same clock, so the stack can never pass through itself.
+- **Chapters.** Three chapters (services, work, process) plus a closing call to action, cross-faded in the left column, each with its own scroll window. Annotations with leader lines appear beside the separated parts on wide screens; the top readout tracks the stage (`STAGE 01 · DISASSEMBLING`), and the rail fills with progress.
+- **Measurements.** `pixelLayout(width, height, explode, stacked)` returns the camera and every part's box in CSS pixels. The canvas paints from it and so do the annotation labels, which is why a label always sits on the part it names.
+- **No overflow.** Every decorative layer is absolutely positioned inside an `overflow: hidden` stage. There is no fixed overlay, no cursor follower, no negative offset and no element that can escape the page box. The scroll track uses `overflow-x: clip`, which contains the decoration without turning the section into a scroll container (that would break `position: sticky`).
+- **Performance.** Scroll never touches React state. One rAF-batched pass reads the scroll position and writes to the canvas and the overlays directly (`style.transform`, `style.opacity`, `textContent`). The canvas is only repainted when the explosion actually moves, plus a 90 ms ambient tick for the drifting dust, the screen sweep and the pointer parallax; the tick pauses when the tab is hidden or the stage is off screen.
+- **Layout.** Split (copy left, machine right) at 900 px and up; `data-layout="stacked"` puts the copy in the top band and the machine underneath. The attribute is set from the measured stage width, so CSS and the canvas always agree.
+- **Reduced motion.** `prefers-reduced-motion: reduce` renders one still frame of the assembled panel, keeps the hero copy, and turns the chapters into ordinary sections below it. The pointer parallax is disabled.
+- A reload always starts at the hero: `scrollRestoration` is `manual` and any `#hash` left in the URL by an earlier in-page click is dropped at boot. In-app hash links (Contact, Start a Project) still scroll as before.
 
 ## Deploy
 

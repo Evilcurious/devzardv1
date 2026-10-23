@@ -1,0 +1,518 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Pixel hero
+   A display, drawn in pixels, taken apart as the page scrolls. The section is
+   a tall track; the stage inside it is pinned with `position: sticky` and the
+   canvas is redrawn from the scroll position. Nothing here is fixed to the
+   viewport and nothing is allowed outside the stage box.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.pixel-hero {
+  position: relative;
+  /* Scroll track: travel is this height minus the pinned stage. */
+  height: 320vh;
+  background: var(--bg);
+  /* `clip` rather than `hidden` — it contains the decoration without turning
+     the section into a scroll container, which would break `position: sticky`. */
+  overflow-x: clip;
+}
+
+.pixel-stage {
+  --pixel-top: 81px;
+  position: sticky;
+  top: var(--pixel-top);
+  height: calc(100svh - var(--pixel-top));
+  min-height: 520px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--bg);
+}
+
+/* Dot matrix, fading out towards the edges. */
+.pixel-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.075) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 62% at 58% 46%, #000 24%, transparent 76%);
+  mask-image: radial-gradient(ellipse 70% 62% at 58% 46%, #000 24%, transparent 76%);
+}
+
+.pixel-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 42% 40% at 68% 42%, #23c7d90c, transparent 72%),
+    radial-gradient(ellipse 60% 26% at 62% 100%, #6cdee806, transparent 74%);
+}
+
+/* Top readout ------------------------------------------------------------ */
+
+.pixel-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(18px, 4vw, 46px);
+  border-bottom: 1px solid var(--line);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6f7a80;
+}
+
+.pixel-hud-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pixel-hud-mark {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  box-shadow: 0 0 10px #6cdee880;
+}
+
+.pixel-hud-right { color: var(--accent); }
+
+/* Stage body ------------------------------------------------------------- */
+
+.pixel-body {
+  position: absolute;
+  inset: 42px clamp(18px, 4vw, 46px) 52px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+  gap: clamp(16px, 3vw, 44px);
+  align-items: center;
+}
+
+.pixel-column {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+/* Copy and chapters share one cell: the tallest one sets the height and they
+   cross-fade in place. */
+.pixel-column > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.pixel-copy {
+  will-change: opacity, transform;
+}
+
+.pixel-brand {
+  display: inline-block;
+  font-size: clamp(30px, 3.2vw, 46px);
+  line-height: 1;
+  letter-spacing: -0.055em;
+  font-weight: 750;
+  color: #f6f8f9;
+}
+
+.pixel-brand-dot { color: var(--accent); }
+
+.pixel-headline {
+  display: block;
+  margin: 14px 0 0;
+  font-size: clamp(27px, 2.9vw, 44px);
+  line-height: 1.12;
+  letter-spacing: -0.042em;
+  font-weight: 600;
+  color: #f1f3f4;
+  text-wrap: balance;
+}
+
+.pixel-headline-accent { color: #a9ecf3; }
+
+.pixel-sub {
+  margin: 16px 0 0;
+  max-width: 44ch;
+  font-size: clamp(12.5px, 1.05vw, 14.5px);
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.pixel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.pixel-actions .button {
+  min-height: 42px;
+  font-size: 12px;
+  padding-inline: 18px;
+}
+
+/* Chapters --------------------------------------------------------------- */
+
+.pixel-chapter {
+  opacity: 0;
+  visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.pixel-tag {
+  margin: 0 0 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.pixel-chapter h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.5vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  color: #f1f3f4;
+  text-wrap: balance;
+}
+
+.pixel-chapter-body {
+  margin: 14px 0 0;
+  max-width: 42ch;
+  font-size: clamp(12.5px, 1.05vw, 14.5px);
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.pixel-chapter-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #cbd4d7;
+  border-bottom: 1px solid #ffffff24;
+  padding-bottom: 4px;
+  transition: color 200ms ease, border-color 200ms ease;
+}
+
+.pixel-chapter-link:hover {
+  color: var(--accent);
+  border-color: #6cdee866;
+}
+
+.pixel-final .pixel-actions { margin-top: 20px; }
+
+/* Figure ----------------------------------------------------------------- */
+
+.pixel-figure {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+}
+
+.pixel-fig-frame {
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border: 1px solid #ffffff08;
+}
+
+.pixel-fig-frame::before,
+.pixel-fig-frame::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #6cdee84d;
+}
+
+.pixel-fig-frame::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.pixel-fig-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.pixel-fig-caption {
+  position: absolute;
+  left: 14px;
+  bottom: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  color: #5c676d;
+  pointer-events: none;
+}
+
+.pixel-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 480ms ease;
+}
+
+.pixel-canvas.is-ready { opacity: 1; }
+
+.pixel-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pixel-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding-left: 16px;
+  opacity: 0;
+  will-change: transform, opacity;
+  white-space: nowrap;
+}
+
+.pixel-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 11px;
+  height: 1px;
+  background: #6cdee85c;
+}
+
+.pixel-label-name {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ccd6d9;
+}
+
+.pixel-label-spec {
+  display: block;
+  margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #6d7a80;
+}
+
+/* Rail ------------------------------------------------------------------- */
+
+.pixel-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 52px;
+  padding: 0 clamp(18px, 4vw, 46px);
+  border-top: 1px solid var(--line);
+}
+
+.pixel-rail-track {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  background: #ffffff12;
+  overflow: hidden;
+}
+
+.pixel-rail-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: linear-gradient(90deg, #2f9aa5, var(--accent));
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.pixel-rail-labels {
+  display: flex;
+  gap: clamp(14px, 2.2vw, 28px);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6f7a80;
+}
+
+/* Stacked layout: copy on top, machine underneath ------------------------ */
+
+.pixel-stage[data-layout='stacked'] .pixel-body {
+  inset: 42px clamp(16px, 5vw, 40px) 48px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 4px;
+  align-items: stretch;
+}
+
+.pixel-stage[data-layout='stacked'] .pixel-column { align-content: start; }
+
+.pixel-stage[data-layout='stacked'] .pixel-brand {
+  font-size: clamp(30px, 9vw, 44px);
+}
+
+.pixel-stage[data-layout='stacked'] .pixel-headline {
+  margin-top: 10px;
+  font-size: clamp(24px, 7.2vw, 36px);
+}
+
+.pixel-stage[data-layout='stacked'] .pixel-sub {
+  margin-top: 12px;
+  font-size: 12.5px;
+  max-width: 40ch;
+}
+
+.pixel-stage[data-layout='stacked'] .pixel-actions { margin-top: 16px; }
+.pixel-stage[data-layout='stacked'] .pixel-actions .button { min-height: 40px; font-size: 11.5px; }
+.pixel-stage[data-layout='stacked'] .pixel-label { display: none; }
+.pixel-stage[data-layout='stacked'] .pixel-chapter h2 { font-size: clamp(22px, 6.4vw, 32px); }
+
+/* Reduced motion --------------------------------------------------------- */
+
+.pixel-hero--static { height: auto; }
+
+.pixel-stage--static {
+  position: relative;
+  top: 0;
+  height: calc(100svh - var(--pixel-top));
+  min-height: 520px;
+}
+
+.pixel-hero--static .pixel-column > * { grid-area: auto; }
+.pixel-hud { position: absolute; }
+
+.pixel-chapters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 34px 28px;
+  padding-block: clamp(44px, 7vw, 84px);
+}
+
+.pixel-chapters article { border-top: 1px solid var(--line); padding-top: 20px; }
+
+.pixel-chapters h2 {
+  margin: 0;
+  font-size: clamp(20px, 1.9vw, 26px);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  color: #f1f3f4;
+}
+
+.pixel-chapters .pixel-chapter-body { font-size: 13px; }
+
+/* Small screens ---------------------------------------------------------- */
+
+/* The annotations need room beside the drawing; below this the diagram
+   speaks for itself. */
+@media (max-width: 1179px) {
+  .pixel-labels { display: none; }
+  .pixel-fig-caption { display: none; }
+}
+
+@media (max-width: 900px) {
+  .pixel-hero { height: 280vh; }
+  .pixel-stage { --pixel-top: 74px; }
+}
+
+@media (max-width: 760px) {
+  .pixel-hero { height: 260vh; }
+  .pixel-stage { --pixel-top: 69px; min-height: 480px; }
+  .pixel-hud { height: 36px; font-size: 8.5px; letter-spacing: 0.14em; }
+  .pixel-body { inset: 36px 20px 46px; }
+  .pixel-rail { height: 46px; padding-inline: 20px; gap: 12px; }
+  .pixel-rail-labels { font-size: 8px; letter-spacing: 0.12em; gap: 12px; }
+}
+
+@media (max-width: 520px) {
+  .pixel-hud-right { letter-spacing: 0.1em; }
+  .pixel-rail-labels span:nth-child(2) { display: none; }
+  .pixel-actions .button { flex: 1 1 100%; justify-content: center; }
+}
+
+@media (max-height: 620px) and (min-width: 901px) {
+  .pixel-stage { min-height: 440px; }
+  .pixel-brand { font-size: clamp(26px, 2.6vw, 34px); }
+  .pixel-headline { font-size: clamp(23px, 2.4vw, 32px); margin-top: 10px; }
+  .pixel-sub { margin-top: 10px; }
+  .pixel-actions { margin-top: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixel-fig-frame {
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border: 1px solid #ffffff08;
+}
+
+.pixel-fig-frame::before,
+.pixel-fig-frame::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #6cdee84d;
+}
+
+.pixel-fig-frame::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.pixel-fig-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.pixel-fig-caption {
+  position: absolute;
+  left: 14px;
+  bottom: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  color: #5c676d;
+  pointer-events: none;
+}
+
+.pixel-canvas { transition: none; }
+}
+
+/* Short viewports -------------------------------------------------------- */
+
+.pixel-hero :where(h1, h2, p) { text-wrap: pretty; }
