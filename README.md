@@ -61,6 +61,17 @@ Copy `.env.example` to `.env` and set `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `
 - Dev: `npm run dev` (the API is mounted into Vite).
 - Prod: `npm run build` then `npm start` (Express serves `dist/` and the API; `/admin` refreshes return `index.html`).
 
+## Hero scroll experience
+
+`src/components/HeroStage.tsx` (art in `laptopScene.ts`) replaces the static hero with a scroll-driven one. The section is a tall track with a sticky stage inside it; progress through the track drives a single canvas frame and four copy lines.
+
+- A closed laptop sits centred on arrival, wordmark etched on the lid. As you scroll the lid swings open and the hero copy — brand, headline, description, calls to action — is handed out in sequence, revealed inside the lit screen. Scrolling on pulls the copy back in and closes the lid, handing off to the workspace preview and then the build story below.
+- The lid is a quad projected from a simple 3D model (`free edge y = hinge + depth·cos θ − height·sin θ`), so the clamshell motion is real rather than a scale animation.
+- Copy is positioned over the screen from the same geometry the canvas draws, published as CSS variables (`--lid-w`, `--lid-h`, `--screen-top`, `--hinge-y`) by the component. There are no duplicated measurements between canvas and CSS.
+- Narrow stages switch to a stacked layout (`data-layout="stacked"`): the copy takes the top of the stage and the laptop sits underneath it.
+- Reduced motion, or a viewport shorter than 560px, renders a static open laptop beside the same copy with no scroll mapping. Hidden copy lines are `visibility: hidden`, so nothing invisible can be focused or clicked.
+- A "Skip to the build story" link keeps the pinned track from trapping keyboard or small-screen users.
+
 ## Scroll experience
 
 `src/components/DevzardScrollExperience.tsx` renders the homepage section directly below the hero (`#story`).
