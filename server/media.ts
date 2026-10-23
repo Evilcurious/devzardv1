@@ -5,9 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Response } from 'express';
 import { del, put } from '@vercel/blob';
-import { BLOB_READ_WRITE_TOKEN, hasBlob } from './env.ts';
-import { getStorage } from './storage/index.ts';
-import type { MediaRecord } from './storage/types.ts';
+import { BLOB_READ_WRITE_TOKEN, hasBlob } from './env';
+import { getStorage } from './storage/index';
+import type { MediaRecord } from './storage/types';
 
 export const MAX_UPLOAD = 2 * 1024 * 1024;
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'uploads');

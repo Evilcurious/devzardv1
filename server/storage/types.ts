@@ -1,4 +1,4 @@
-import type { CmsContent } from '../../src/cms/types.ts';
+import type { CmsContent } from '../../src/cms/types';
 
 export interface AuthRecord {
   id: string;

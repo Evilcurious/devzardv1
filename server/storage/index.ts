@@ -1,7 +1,7 @@
-import { DATABASE_URL, hasDatabase } from '../env.ts';
-import { FileStorage } from './file.ts';
-import { PostgresStorage } from './postgres.ts';
-import type { Storage } from './types.ts';
+import { DATABASE_URL, hasDatabase } from '../env';
+import { FileStorage } from './file';
+import { PostgresStorage } from './postgres';
+import type { Storage } from './types';
 
 let instance: Storage | null = null;
 
@@ -11,5 +11,5 @@ export function getStorage(): Storage {
   return instance;
 }
 
-export type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types.ts';
-export { publicContent } from './types.ts';
+export type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types';
+export { publicContent } from './types';

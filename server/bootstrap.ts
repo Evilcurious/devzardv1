@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from './env.ts';
-import { getStorage } from './storage/index.ts';
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from './env';
+import { getStorage } from './storage/index';
 
 const BCRYPT_ROUNDS = 12;
 

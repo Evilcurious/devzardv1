@@ -1,8 +1,8 @@
-import { createApp } from './app.ts';
-import { bootstrapAdmin } from './bootstrap.ts';
-import { assertProductionConfig } from './env.ts';
-import { sessionSecret } from './secret.ts';
-import { getStorage } from './storage/index.ts';
+import { createApp } from './app';
+import { bootstrapAdmin } from './bootstrap';
+import { assertProductionConfig } from './env';
+import { sessionSecret } from './secret';
+import { getStorage } from './storage/index';
 
 const port = Number(process.env.PORT || 4173);
 

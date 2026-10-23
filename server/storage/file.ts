@@ -1,10 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SEED } from '../../src/cms/seed.ts';
-import type { CmsContent } from '../../src/cms/types.ts';
-import { contentSchema } from '../validate.ts';
-import type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types.ts';
+import { SEED } from '../../src/cms/seed';
+import type { CmsContent } from '../../src/cms/types';
+import { contentSchema } from '../validate';
+import type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data');
 const contentFile = path.join(root, 'content.json');

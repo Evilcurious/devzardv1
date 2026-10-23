@@ -1,8 +1,8 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { SEED } from '../../src/cms/seed.ts';
-import type { CmsContent } from '../../src/cms/types.ts';
-import { contentSchema } from '../validate.ts';
-import type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types.ts';
+import { SEED } from '../../src/cms/seed';
+import type { CmsContent } from '../../src/cms/types';
+import { contentSchema } from '../validate';
+import type { AuditEvent, AuthRecord, MediaRecord, SessionRecord, Storage } from './types';
 
 // Each editable collection is a table. Homepage + settings are single-row JSON
 // documents. Everything is written through parameterized queries only.

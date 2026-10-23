@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
-import { createApp } from './app.ts';
-import { bootstrapAdmin } from './bootstrap.ts';
-import { getStorage } from './storage/index.ts';
+import { createApp } from './app';
+import { bootstrapAdmin } from './bootstrap';
+import { getStorage } from './storage/index';
 
 let ready: Promise<void> | null = null;
 

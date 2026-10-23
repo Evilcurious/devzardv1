@@ -1,17 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createApp } from '../server/app.ts';
-import { bootstrapAdmin } from '../server/bootstrap.ts';
-import { assertProductionConfig } from '../server/env.ts';
-import { sessionSecret } from '../server/secret.ts';
-import { getStorage } from '../server/storage/index.ts';
+import { createApp } from '../server/app';
+import { bootstrapAdmin } from '../server/bootstrap';
+import { assertProductionConfig } from '../server/env';
+import { sessionSecret } from '../server/secret';
+import { getStorage } from '../server/storage';
 
 /**
- * Vercel serverless entry for the Express API — every request under `/api/*`.
+ * Vercel serverless entry for the Express API.
  *
- * The app is created once per function instance and reused across warm
- * invocations. Storage schema, the first admin seed and the session secret are
- * resolved once, on the first request, so a cold start pays for them a single
- * time and a failed boot is retried by the next request.
+ * `vercel.json` rewrites every `/api/*` request here while preserving the
+ * original URL, so the app sees the same paths it handles in development. The
+ * app is created once per instance and reused across warm invocations; storage
+ * schema, the first admin seed and the session secret resolve once, on the
+ * first request, and a failed boot is retried by the next one.
  */
 
 type VercelRequest = IncomingMessage & { body?: unknown; _body?: boolean };
@@ -43,6 +44,11 @@ export default async function handler(req: VercelRequest, res: ServerResponse) {
   // `req._body` is true, so flag it — otherwise Express would read an already
   // consumed stream and every POST/PUT would arrive with an empty body.
   if (req.body !== undefined) req._body = true;
+
+  // If a rewrite ever hands over a path without the /api prefix, restore it.
+  const url = req.url ?? '/';
+  if (!url.startsWith('/api')) req.url = `/api${url.startsWith('/') ? '' : '/'}${url}`;
+
   await ensureReady();
   return app(req, res);
 }
