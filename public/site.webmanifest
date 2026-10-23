@@ -1,0 +1,10 @@
+{
+  "name": "Devzard - Software Built for Businesses",
+  "short_name": "Devzard",
+  "description": "Modern websites, ecommerce platforms, and custom business software.",
+  "start_url": "/",
+  "display": "minimal-ui",
+  "background_color": "#0c0e11",
+  "theme_color": "#0c0e11",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

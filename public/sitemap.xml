@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://devzard.com/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://devzard.com/work/alwazir</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://devzard.com/work/deephq</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://devzard.com/products</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://devzard.com/resources/documentation</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://devzard.com/resources/blog</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://devzard.com/resources/faq</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://devzard.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://devzard.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>

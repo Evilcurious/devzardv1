@@ -1,0 +1,58 @@
+# Dependencies
+
+node_modules/
+
+# Environment / secrets
+
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Build output
+
+dist/
+build/
+.vite/
+
+# Logs
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local runtime / generated data
+
+server/data/session-secret
+server/data/*
+!server/data/.gitkeep
+
+# Local storage / uploads
+
+uploads/
+server/uploads/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editors
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# TypeScript / tooling
+
+*.tsbuildinfo
+
+# Vercel
+
+.vercel/
+
+.vercel
