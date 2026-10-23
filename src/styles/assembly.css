@@ -64,16 +64,16 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 54%;
+  height: 46%;
   z-index: 2;
   pointer-events: none;
   opacity: var(--scrim, 0);
   transition: opacity 240ms linear;
   background: linear-gradient(
     to top,
-    var(--bg) 6%,
-    #0c0e11eb 30%,
-    #0c0e1180 58%,
+    var(--bg) 14%,
+    #0c0e11e8 40%,
+    #0c0e1199 66%,
     transparent 100%
   );
 }
@@ -87,13 +87,72 @@
 
 .assembly-copy.is-hidden { visibility: hidden; }
 
+/* The panel is wider than the old lid, so the brand steps back a little to
+   leave the rotating lines room on the glass. */
+.assembly-copy .hero-brand {
+  font-size: max(30px, calc(var(--lid-w, 760px) * 0.058));
+}
+
 .assembly-copy-inner {
   display: flex;
   flex-direction: column;
   align-items: inherit;
   text-align: inherit;
-  transform: translate3d(0, calc((1 - var(--o, 1)) * 12px), 0);
+  /* The copy arrives from the right on load; the slides take over after that. */
+  animation: assembly-enter 760ms cubic-bezier(.22, .7, .24, 1) both;
 }
+
+@keyframes assembly-enter {
+  from { opacity: 0; transform: translate3d(72px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The rotating lines on the glass ---------------------------------------- */
+
+.assembly-slides {
+  position: relative;
+  width: 100%;
+  height: max(92px, calc(var(--lid-w, 760px) * 0.19));
+  margin-top: calc(var(--lid-w, 760px) * 0.022);
+}
+
+.assembly-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.assembly-slide.is-in { animation: assembly-slide-in 640ms cubic-bezier(.22, .7, .24, 1) both; }
+.assembly-slide.is-out { animation: assembly-slide-out 640ms cubic-bezier(.4, 0, .7, .25) both; }
+
+@keyframes assembly-slide-in {
+  from { opacity: 0; transform: translate3d(56px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes assembly-slide-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate3d(-56px, 0, 0); }
+}
+
+.assembly-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: calc(var(--lid-w, 760px) * 0.014);
+}
+
+.assembly-dots > span {
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: #ffffff1f;
+  transition: background 380ms ease;
+}
+
+.assembly-dots > span.is-on { background: var(--accent); }
 
 .assembly-stage[data-layout="overlay"] .assembly-copy {
   /* Same geometry the canvas uses: the box sits inside the display panel. */
@@ -128,8 +187,22 @@
   max-width: 40ch;
 }
 
-.assembly-stage[data-layout="stacked"] .hero-ctas { margin-top: 17px; }
+.assembly-stage[data-layout="stacked"] .hero-ctas { margin-top: 14px; }
 .assembly-stage[data-layout="stacked"] .hero-ctas .button { min-height: 42px; font-size: 12px; }
+
+.assembly-stage[data-layout="stacked"] .assembly-slides {
+  height: 112px;
+  margin-top: 10px;
+}
+
+.assembly-stage[data-layout="stacked"] .assembly-slide {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.assembly-stage[data-layout="stacked"] .hero-description { margin-inline: 0; }
+
+.assembly-stage[data-layout="stacked"] .assembly-dots { margin-top: 10px; }
 
 .assembly-stage[data-layout="stacked"] .assembly-art {
   inset: 44% 0 0 0;
@@ -248,6 +321,13 @@
 }
 
 .assembly-chapter--right .assembly-chapter-inner { margin-left: auto; }
+
+/* Side columns are narrow, so their type steps down with them. */
+.assembly-stage[data-chapters="sides"] .assembly-chapter h2 {
+  font-size: clamp(22px, 1.8vw, 30px);
+}
+
+.assembly-stage[data-chapters="sides"] .assembly-body { font-size: 12.5px; }
 
 /* The columns never run into the machine: the width comes from the drawing's
    own half-width, published by the component. */
@@ -381,6 +461,10 @@
 @media (prefers-reduced-motion: reduce) {
   .assembly-canvas { transition: none; opacity: 1; }
   .assembly-scrim { transition: none; }
+  .assembly-copy-inner,
+  .assembly-slide.is-in,
+  .assembly-slide.is-out { animation: none; }
+  .assembly-dots { display: none; }
 }
 
 @media (max-width: 1150px) {
