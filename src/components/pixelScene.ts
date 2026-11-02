@@ -31,11 +31,11 @@ const CHIN = 6;
 /** Front to back, in the order the parts come off. */
 export const PARTS: PartSpec[] = [
   { id: 'panel', w: PANEL_W, h: PANEL_H, baseY: 0, openY: 0 },
-  { id: 'diffuser', w: 100, h: 26, baseY: 0, openY: 60 },
-  { id: 'board', w: 84, h: 26, baseY: 0, openY: 84 },
-  { id: 'power', w: 62, h: 22, baseY: 0, openY: 108 },
-  { id: 'shell', w: 104, h: 22, baseY: 0, openY: 128 },
-  { id: 'stand', w: 52, h: 20, baseY: 56, openY: 152 },
+  { id: 'diffuser', w: 100, h: 26, baseY: 0, openY: 66 },
+  { id: 'board', w: 84, h: 26, baseY: 0, openY: 94 },
+  { id: 'power', w: 62, h: 22, baseY: 0, openY: 122 },
+  { id: 'shell', w: 104, h: 22, baseY: 0, openY: 146 },
+  { id: 'stand', w: 52, h: 20, baseY: 56, openY: 172 },
 ];
 
 export interface Camera {
@@ -105,7 +105,7 @@ export function pixelLayout(w: number, h: number, explode: number, stacked = fal
   const artW = PANEL_W;
 
   const widthRoom = w * (stacked ? 0.98 : 0.94);
-  const heightRoom = h * (stacked ? 0.94 : 0.9);
+  const heightRoom = h * (stacked ? 0.9 : 0.84);
   const s = Math.min(widthRoom / artW, heightRoom / artH);
 
   const oy = h * 0.5 - (artH * s) / 2 - top * s;
