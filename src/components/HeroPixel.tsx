@@ -94,14 +94,16 @@ interface Service {
   part: PartId;
   name: string;
   detail: string;
+  /** One word, for the panel footer. */
+  short: string;
 }
 
 const SERVICES: Service[] = [
-  { part: 'diffuser', name: 'Software development', detail: 'web · commerce · systems' },
-  { part: 'board', name: 'Hosting', detail: 'deploy · monitor · maintain' },
-  { part: 'power', name: 'ERP systems', detail: 'stock · billing · reports' },
-  { part: 'shell', name: 'AI automation', detail: 'workflows · integrations' },
-  { part: 'stand', name: 'Video & graphic design', detail: 'editing · motion · brand' },
+  { part: 'diffuser', name: 'Software development', detail: 'web · commerce · systems', short: 'Software' },
+  { part: 'board', name: 'Hosting', detail: 'deploy · monitor · maintain', short: 'Hosting' },
+  { part: 'power', name: 'ERP systems', detail: 'stock · billing · reports', short: 'ERP' },
+  { part: 'shell', name: 'AI automation', detail: 'workflows · integrations', short: 'AI' },
+  { part: 'stand', name: 'Video & graphic design', detail: 'editing · motion · brand', short: 'Design' },
 ];
 
 /** Width reserved for an annotation, in CSS pixels. */
@@ -382,7 +384,27 @@ export function HeroPixel() {
               <div className="pixel-copy is-static">{heroCopy}</div>
             </div>
             <div className="pixel-figure">
-              <StaticPanel />
+              <span className="pixel-float pixel-float--top" aria-hidden="true">
+                <span className="pixel-float-dot" />
+                React · Node · Postgres
+              </span>
+              <span className="pixel-float pixel-float--bottom" aria-hidden="true">Deployed on Vercel</span>
+              <div className="pixel-panel">
+                <div className="pixel-panel-bar" aria-hidden="true">
+                  <span className="pixel-panel-dots"><i /><i /><i /></span>
+                  <span className="pixel-panel-path">devzard / system</span>
+                  <span className="pixel-panel-live"><i />Live</span>
+                </div>
+                <div className="pixel-panel-body">
+                  <StaticPanel />
+                </div>
+                <div className="pixel-panel-foot" aria-hidden="true">
+                  {SERVICES.map(service => (
+                    <span key={service.part}>{service.short}</span>
+                  ))}
+                  <span className="pixel-panel-fig">Fig. 01</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -463,23 +485,42 @@ export function HeroPixel() {
           </div>
 
           <div className="pixel-figure" ref={figureRef}>
-            <span className="pixel-fig-frame" aria-hidden="true" />
-            <canvas ref={canvasRef} className="pixel-canvas" aria-hidden="true" />
-            <div className="pixel-labels" aria-hidden="true">
-              {SERVICES.map((service, index) => (
-                <div
-                  className="pixel-label"
-                  key={service.part}
-                  ref={node => { labelRefs.current[index] = node; }}
-                >
-                  <span className="pixel-label-name">{service.name}</span>
-                  <span className="pixel-label-spec">{service.detail}</span>
-                </div>
-              ))}
-            </div>
-            <span className="pixel-fig-caption" aria-hidden="true">
-              FIG. 01 — WHAT WE BUILD, LAYER BY LAYER
+            <span className="pixel-float pixel-float--top" aria-hidden="true">
+              <span className="pixel-float-dot" />
+              React · Node · Postgres
             </span>
+            <span className="pixel-float pixel-float--bottom" aria-hidden="true">Deployed on Vercel</span>
+
+            <div className="pixel-panel">
+              <div className="pixel-panel-bar" aria-hidden="true">
+                <span className="pixel-panel-dots"><i /><i /><i /></span>
+                <span className="pixel-panel-path">devzard / system</span>
+                <span className="pixel-panel-live"><i />Live</span>
+              </div>
+
+              <div className="pixel-panel-body">
+                <canvas ref={canvasRef} className="pixel-canvas" aria-hidden="true" />
+                <div className="pixel-labels" aria-hidden="true">
+                  {SERVICES.map((service, index) => (
+                    <div
+                      className="pixel-label"
+                      key={service.part}
+                      ref={node => { labelRefs.current[index] = node; }}
+                    >
+                      <span className="pixel-label-name">{service.name}</span>
+                      <span className="pixel-label-spec">{service.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pixel-panel-foot" aria-hidden="true">
+                {SERVICES.map(service => (
+                  <span key={service.part}>{service.short}</span>
+                ))}
+                <span className="pixel-panel-fig">Fig. 01</span>
+              </div>
+            </div>
           </div>
         </div>
 
